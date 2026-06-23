@@ -1,0 +1,3 @@
+RewriteEngine On
+
+RewriteRule ^webfinger$ webfinger.php [L,QSA]

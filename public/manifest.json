@@ -1,0 +1,11 @@
+{
+  "name": "Salle des profs",
+  "short_name": "Salle des profs",
+  "version": "1.0.0",
+  "description": "Plateforme d’échange, de soutien et de coordination des enseignants.",
+  "start_url": "index.php",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#2563eb",
+  "icons": []
+}

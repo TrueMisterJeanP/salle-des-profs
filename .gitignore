@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# Configuration locale et secrets
+.env
+.env.*
+!.env.example
+database/database.config.php
+
+# Bases de données d'exploitation
+database/*.sqlite
+database/*.sqlite-*
+database/*.sqlite-journal
+database/backups/
+
+# Migrations historiques déjà intégrées aux schémas complets.
+# Les futures migrations, à partir de 024, resteront publiables.
+database/migrations/0[01][0-9]_*.sql
+database/migrations/02[0-3]_*.sql
+
+# Contenus et fichiers téléversés
+uploads/*
+!uploads/.gitkeep
+!uploads/avatars/
+!uploads/attachments/
+!uploads/site/
+uploads/avatars/*
+uploads/attachments/*
+uploads/site/*
+!uploads/avatars/.gitkeep
+!uploads/attachments/.gitkeep
+!uploads/site/.gitkeep
+
+# Imports, captures et fichiers de travail locaux
+import_enseignants.csv
+image.png
+*.log
