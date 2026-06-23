@@ -111,32 +111,35 @@ $flashes = get_flashes();
                 </p>
 
                 <nav class="message-type-nav" aria-label="Types de messages">
-                    <a class="active" href="<?= e(url('chat.php')) ?>" aria-current="page">
-                        Messages privés
-                    </a>
-                    <a href="<?= e(url('groups.php')) ?>">
-                        Messages de groupes
-                    </a>
-                    <button
-                        type="button"
-                        class="button-secondary messenger-notification-nav-button"
-                        data-messenger-notification-toggle
-                        data-messenger-notification-enabled="<?= $messengerNotificationsEnabled ? '1' : '0' ?>"
-                        data-preference-endpoint="<?= e($messengerPreferenceEndpoint) ?>"
-                        data-messages-endpoint="<?= e($messengerAlertsEndpoint) ?>"
-                        data-csrf-token="<?= e(csrf_token()) ?>"
-                    >
-                        Activer les notifications
-                    </button>
+                    <div class="message-type-buttons">
+                        <a class="active" href="<?= e(url('chat.php')) ?>" aria-current="page">
+                            Messages privés
+                        </a>
+                        <a href="<?= e(url('groups.php')) ?>">
+                            Messages de groupes
+                        </a>
+                        <span class="message-type-break" aria-hidden="true"></span>
+                        <button
+                            type="button"
+                            class="button-secondary messenger-notification-nav-button"
+                            data-messenger-notification-toggle
+                            data-messenger-notification-enabled="<?= $messengerNotificationsEnabled ? '1' : '0' ?>"
+                            data-preference-endpoint="<?= e($messengerPreferenceEndpoint) ?>"
+                            data-messages-endpoint="<?= e($messengerAlertsEndpoint) ?>"
+                            data-csrf-token="<?= e(csrf_token()) ?>"
+                        >
+                            Activer les notifications
+                        </button>
+                        <a
+                            class="button-secondary messenger-open-button"
+                            href="<?= e(url('messenger.php?type=private' . ($selectedUser ? '&user_id=' . (int)$selectedUser['id'] : ''))) ?>"
+                            aria-label="Ouvrir la messagerie instantanée"
+                            title="Ouvrir la messagerie instantanée"
+                        >
+                            Interface messagerie
+                        </a>
+                    </div>
                     <span class="meta messenger-notification-status" data-messenger-notification-status role="status" aria-live="polite"></span>
-                    <a
-                        class="button-secondary messenger-open-button"
-                        href="<?= e(url('messenger.php?type=private' . ($selectedUser ? '&user_id=' . (int)$selectedUser['id'] : ''))) ?>"
-                        aria-label="Ouvrir la messagerie instantanée"
-                        title="Ouvrir la messagerie instantanée"
-                    >
-                        Interface messagerie
-                    </a>
                 </nav>
 
             </div>
