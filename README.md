@@ -26,9 +26,9 @@ enseignants, développée en PHP avec SQLite ou MariaDB.
 
 ![Établissement](docs/screenshots/etablissement.png)
 
-![Messagerie](docs/screenshots/messenger.png)
-
 ![Syndicat](docs/screenshots/syndicat.png)
+
+![Messagerie](docs/screenshots/messenger.png)
 
 ## Structure
 
