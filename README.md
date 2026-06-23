@@ -12,6 +12,7 @@ enseignants, développée en PHP avec SQLite ou MariaDB.
 - Connexion, déconnexion et inscription selon paramètre.
 - Administration des utilisateurs, groupes, posts, articles, commentaires, paramètres, migrations et publications Mastodon.
 - Posts courts, articles Markdown, commentaires, messages privés, groupes, messages de groupe et pièces jointes.
+- Fédération compatible ActivityPub et Mastodon : un enseignant peut rendre publique une annonce ou un article, visible par toutes et tous, et plusieurs sites Salle des profs peuvent afficher des informations publiques publiées par d’autres instances compatibles.
 - Pages publiques, articles publics et flux RSS.
 - Publication manuelle vers Mastodon si un compte est configuré.
 
