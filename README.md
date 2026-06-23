@@ -15,6 +15,20 @@ enseignants, développée en PHP avec SQLite ou MariaDB.
 - Pages publiques, articles publics et flux RSS.
 - Publication manuelle vers Mastodon si un compte est configuré.
 
+## Captures d’écran
+
+![Accueil](docs/screenshots/accueil.png)
+
+![Tableau de bord](docs/screenshots/dashboard.png)
+
+![Fédération](docs/screenshots/dashboard_federation.png)
+
+![Établissement](docs/screenshots/etablissement.png)
+
+![Messagerie](docs/screenshots/messenger.png)
+
+![Syndicat](docs/screenshots/syndicat.png)
+
 ## Structure
 
 - `install.php` : installation initiale et création du premier administrateur.
