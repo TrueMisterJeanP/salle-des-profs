@@ -5,10 +5,6 @@ Version actuelle : **1.0.0**
 Application web libre d’échange, de soutien et de coordination destinée aux
 enseignants, développée en PHP avec SQLite ou MariaDB.
 
-> Le dépôt contient uniquement le code source et les schémas. Les bases de
-> données, comptes, courriels, jetons, clés privées et fichiers téléversés ne
-> doivent jamais être ajoutés au dépôt.
-
 ## Fonctionnalités
 
 - Installation guidée via `install.php`.
