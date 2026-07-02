@@ -2592,11 +2592,11 @@ tr:last-child td {
 
 .message-type-buttons {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    overflow-x: auto;
+    overflow-x: visible;
     padding-bottom: 2px;
 }
 
@@ -2691,19 +2691,6 @@ tr:last-child td {
     padding: 7px 12px;
     box-shadow: none;
     white-space: nowrap;
-}
-
-@media (max-width: 1100px) {
-    .message-type-buttons {
-        flex-wrap: wrap;
-        overflow-x: visible;
-    }
-
-    .message-type-break {
-        display: block;
-        flex: 0 0 100%;
-        height: 0;
-    }
 }
 
 .contact-list {
@@ -3892,6 +3879,10 @@ body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.cha
 
 body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments) > * {
     max-width: min(100%, 760px);
+}
+
+body:not(.auth-page) main.page > .card.messenger-entry-card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments) > .messenger-entry-copy {
+    max-width: 100%;
 }
 
 body:not(.auth-page) main.page > .card:first-of-type:not(.article-full)::before {

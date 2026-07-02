@@ -118,7 +118,6 @@ $flashes = get_flashes();
                         <a href="<?= e(url('groups.php')) ?>">
                             Messages de groupes
                         </a>
-                        <span class="message-type-break" aria-hidden="true"></span>
                         <button
                             type="button"
                             class="button-secondary messenger-notification-nav-button"
