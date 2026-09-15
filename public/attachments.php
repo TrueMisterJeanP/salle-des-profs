@@ -72,6 +72,19 @@ if (is_post()) {
                             ['attachment_id' => $attachmentId]
                         );
 
+                        if (db_column_exists('protection_resources', 'attachment_id')) {
+                            db_query(
+                                "UPDATE protection_resources
+                                 SET attachment_id = NULL,
+                                     updated_at = :updated_at
+                                 WHERE attachment_id = :attachment_id",
+                                [
+                                    'attachment_id' => $attachmentId,
+                                    'updated_at' => now(),
+                                ]
+                            );
+                        }
+
                         db_query(
                             "UPDATE users
                              SET avatar = NULL,
@@ -167,6 +180,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Fichiers — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -192,7 +206,7 @@ $flashes = get_flashes();
             <h1>Mes fichiers</h1>
             <p class="muted">
                 Fichiers que vous avez envoyés sur la plateforme.
-                Stockage utilisé : <?= e(human_file_size((int)$currentUserQuota['used_storage_bytes'])) ?>
+                Stockage utilisé : <span data-storage-used data-storage-bytes="<?= (int)$currentUserQuota['used_storage_bytes'] ?>"><?= e(human_file_size((int)$currentUserQuota['used_storage_bytes'])) ?></span>
                 / <?= e($effectiveUserQuota !== null ? human_file_size($effectiveUserQuota) : 'illimité') ?>.
             </p>
         </section>
@@ -231,13 +245,11 @@ $flashes = get_flashes();
             <div id="upload-result" class="upload-result"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-attachment-list data-current-page="<?= $page ?>">
             <h2>Liste des fichiers</h2>
 
-            <?php if (!$attachments): ?>
-                <p class="muted">Aucun fichier envoyé pour l’instant.</p>
-            <?php else: ?>
-                <div class="table-wrapper">
+            <p class="muted" data-attachment-empty <?= $attachments ? 'hidden' : '' ?>>Aucun fichier envoyé pour l’instant.</p>
+            <div class="table-wrapper" data-attachment-table <?= $attachments ? '' : 'hidden' ?>>
                     <table>
                         <thead>
                             <tr>
@@ -249,7 +261,7 @@ $flashes = get_flashes();
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody data-attachment-list-body>
                             <?php foreach ($attachments as $attachment): ?>
                                 <?php
                                     $attachmentId = (int)$attachment['id'];
@@ -323,14 +335,12 @@ $flashes = get_flashes();
                             <?php endforeach; ?>
                         </tbody>
                     </table>
-                </div>
+            </div>
             
             <?php if ($totalPages > 1): ?>
                 <section class="card">
                     <?= render_pagination($page, $totalPages) ?>
                 </section>
-            <?php endif; ?>
-            
             <?php endif; ?>
         </section>
     </main>

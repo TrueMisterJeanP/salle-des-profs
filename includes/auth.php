@@ -84,6 +84,15 @@ function auth_ensure_rate_limit_table(): void
         db_query("ALTER TABLE auth_attempts ADD COLUMN rate_limit_active INTEGER NOT NULL DEFAULT 1");
     }
 
+    if (!db_column_exists('auth_attempts', 'password_fingerprint_version')) {
+        db_query("ALTER TABLE auth_attempts ADD COLUMN password_fingerprint_version INTEGER NOT NULL DEFAULT 1");
+        db_query(
+            "UPDATE auth_attempts
+             SET password_fingerprint = NULL
+             WHERE password_fingerprint IS NOT NULL"
+        );
+    }
+
     db_query(
         "CREATE INDEX IF NOT EXISTS idx_auth_attempts_lookup
          ON auth_attempts(action, identifier_hash, ip_hash, success, created_at)"
@@ -124,7 +133,29 @@ function auth_password_attempt_fingerprint(string $password): string
         return '';
     }
 
-    return hash_hmac('sha256', $password, 'protection-auth-attempt|' . __DIR__ . '|' . SESSION_NAME);
+    $configuredKey = trim((string)(getenv('AUTH_FINGERPRINT_KEY') ?: ''));
+    if ($configuredKey !== '') {
+        $key = hash('sha256', $configuredKey, true);
+    } else {
+        $keyPath = ROOT_PATH . '/database/.auth_fingerprint_key';
+        $storedKey = is_file($keyPath) ? trim((string)@file_get_contents($keyPath)) : '';
+
+        if (preg_match('/^[a-f0-9]{64}$/', $storedKey) !== 1) {
+            $storedKey = bin2hex(random_bytes(32));
+            if (@file_put_contents($keyPath, $storedKey, LOCK_EX) === false) {
+                return '';
+            }
+            @chmod($keyPath, 0600);
+        }
+
+        $decodedKey = hex2bin($storedKey);
+        if (!is_string($decodedKey)) {
+            return '';
+        }
+        $key = $decodedKey;
+    }
+
+    return hash_hmac('sha256', $password, $key);
 }
 
 function password_policy_errors(string $password): array
@@ -271,9 +302,9 @@ function auth_rate_limit_record(string $action, string $identifier, bool $succes
 
     db_query(
         "INSERT INTO auth_attempts
-            (action, identifier_hash, identifier_value, ip_hash, ip_address, password_fingerprint, success, created_at)
+            (action, identifier_hash, identifier_value, ip_hash, ip_address, password_fingerprint, password_fingerprint_version, success, created_at)
          VALUES
-            (:action, :identifier_hash, :identifier_value, :ip_hash, :ip_address, :password_fingerprint, 0, :created_at)",
+            (:action, :identifier_hash, :identifier_value, :ip_hash, :ip_address, :password_fingerprint, 2, 0, :created_at)",
         [
             'action' => $action,
             'identifier_hash' => $identifierHash,
@@ -425,6 +456,13 @@ function user_must_accept_charter(?array $user = null): bool
 function require_login(): void
 {
     if (!is_logged_in()) {
+        if (request_expects_json()) {
+            json_response([
+                'success' => false,
+                'error' => 'Authentification requise.',
+            ], 401);
+        }
+
         set_flash('warning', 'Vous devez vous connecter pour accéder à cette page.');
         redirect(url('login.php'));
     }
@@ -433,12 +471,27 @@ function require_login(): void
 
     if (!$user || (int)$user['is_active'] !== 1) {
         logout_user();
+
+        if (request_expects_json()) {
+            json_response([
+                'success' => false,
+                'error' => 'Votre compte est désactivé.',
+            ], 403);
+        }
+
         set_flash('error', 'Votre compte est désactivé.');
         redirect(url('login.php'));
     }
 
     $currentScript = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
     if (user_must_accept_charter($user) && !in_array($currentScript, ['charter.php', 'logout.php'], true)) {
+        if (request_expects_json()) {
+            json_response([
+                'success' => false,
+                'error' => 'Vous devez accepter la charte avant de poursuivre.',
+            ], 403);
+        }
+
         redirect(url('charter.php'));
     }
 

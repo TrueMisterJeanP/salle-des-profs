@@ -164,6 +164,7 @@ $canEdit = (int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? 
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title><?= e($article['title']) ?> — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -216,36 +217,6 @@ $canEdit = (int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? 
                     </span>
                 </div>
 
-                <?php if ($canEdit): ?>
-                <div class="form-actions">
-                    <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
-                        Modifier
-                    </a>
-                    
-                    <a class="button-secondary" href="<?= e(url('articles.php')) ?>">
-                        Retour à mes articles
-                    </a>
-
-                    <?php if ((int)$article['author_id'] === (int)$user['id'] && $article['visibility'] === 'public' && $mastodonConfigured): ?>
-                        <button
-                            type="button"
-                            data-publish-mastodon
-                            data-content-type="article"
-                            data-content-id="<?= e((string)$article['id']) ?>"
-                        >
-                            Publier sur Mastodon
-                        </button>
-                    <?php endif; ?>
-
-                    <form method="post" action="" onsubmit="return confirm('Supprimer définitivement cet article et ses commentaires ?');">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="delete">
-                        <input type="hidden" name="article_id" value="<?= e((string)$article['id']) ?>">
-                        <button type="submit" class="button-danger">Supprimer</button>
-                    </form>
-                    
-                </div>
-                <?php endif; ?>
             </header>
 
             <?php if (!empty($article['excerpt'])): ?>
@@ -272,6 +243,36 @@ $canEdit = (int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? 
                         <?php endforeach; ?>
                     </div>
                 </section>
+            <?php endif; ?>
+
+            <?php if ($canEdit): ?>
+                <div class="form-actions article-full-actions">
+                    <form method="post" action="" onsubmit="return confirm('Supprimer définitivement cet article et ses commentaires ?');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="article_id" value="<?= e((string)$article['id']) ?>">
+                        <button type="submit" class="button-danger">Supprimer</button>
+                    </form>
+
+                    <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
+                        Modifier
+                    </a>
+
+                    <a class="button-secondary" href="<?= e(url('articles.php')) ?>">
+                        Retour à mes articles
+                    </a>
+
+                    <?php if ((int)$article['author_id'] === (int)$user['id'] && $article['visibility'] === 'public' && $mastodonConfigured): ?>
+                        <button
+                            type="button"
+                            data-publish-mastodon
+                            data-content-type="article"
+                            data-content-id="<?= e((string)$article['id']) ?>"
+                        >
+                            Publier sur Mastodon
+                        </button>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
         </article>
 

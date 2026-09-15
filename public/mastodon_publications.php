@@ -46,8 +46,9 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
-    <title>Publications Mastodon — <?= e(APP_NAME) ?></title>
+    <title>Historique Mastodon — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">
 </head>
@@ -62,7 +63,7 @@ $flashes = get_flashes();
         <?php endforeach; ?>
 
         <section class="card">
-            <h1>Publications Mastodon</h1>
+            <h1>Historique Mastodon</h1>
             <p class="muted">
                 Historique des contenus envoyés vers votre compte Mastodon.
             </p>

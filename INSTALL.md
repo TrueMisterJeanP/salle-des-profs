@@ -36,21 +36,23 @@ Mot de passe : root
 Ce raccourci n’est pas disponible à distance ni en production. Il ne doit
 jamais servir à déployer un site public.
 
-## BASE_URL
+## URL publique
 
-`BASE_URL` doit pointer vers le dossier public de l’application.
+Définir la variable d’environnement `APP_BASE_URL` avec l’URL qui pointe vers
+le dossier public de l’application. Cette valeur fixe évite notamment qu’un
+en-tête HTTP `Host` inattendu soit utilisé dans les liens envoyés par email.
 
 Exemples :
 
-```php
-const BASE_URL = 'http://localhost/salle-des-profs/public';
-const BASE_URL = 'https://example.com/public';
+```text
+APP_BASE_URL=http://localhost/salle-des-profs/public
+APP_BASE_URL=https://example.com/public
 ```
 
 Si le serveur web pointe déjà directement vers `public/`, utiliser l’URL publique réelle :
 
-```php
-const BASE_URL = 'https://salle-des-profs.example.com';
+```text
+APP_BASE_URL=https://salle-des-profs.example.com
 ```
 
 Les liens vers `install.php` et `admin/` sont construits à partir de cette valeur.
@@ -66,9 +68,23 @@ const APP_ENV = 'production';
 À configurer côté serveur :
 
 - HTTPS.
+- `APP_BASE_URL` avec l’URL HTTPS publique exacte.
 - Pas d’accès direct à `database/`.
 - Pas d’exécution PHP ou CGI dans `uploads/`.
 - Sauvegardes régulières de `database/app.sqlite` et `uploads/`.
+
+Les fichiers `.htaccess` fournis appliquent ces refus sous Apache. Avec Nginx
+ou un autre serveur, reproduire explicitement ces règles dans le virtual host.
+
+Si un proxy inverse transmet `X-Forwarded-For`, renseigner ses adresses IP
+exactes, séparées par des virgules, dans `TRUSTED_PROXY_IPS`. Sans cette
+variable, seuls les proxys locaux `127.0.0.1` et `::1` sont approuvés.
+
+La détection des mots de passe réessayés dans le journal de sécurité utilise
+`AUTH_FINGERPRINT_KEY` lorsqu’elle est définie. À défaut, une clé aléatoire est
+créée dans `database/.auth_fingerprint_key` avec des droits restreints. Cette
+clé doit rester secrète et être partagée par les différents nœuds si le site
+est répliqué.
 
 ## Stockage des fichiers sur un disque externe
 

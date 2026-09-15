@@ -809,32 +809,101 @@ function activitypub_upsert_remote_actor(array $actor): array
 
 function activitypub_fetch_json(string $url): ?array
 {
-    if (!function_exists('curl_init') || !preg_match('#^https?://#i', $url)) {
+    if (!function_exists('curl_init')) {
         return null;
     }
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_HTTPHEADER => [
-            'Accept: application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/ld+json',
-            'User-Agent: Salle des profs ActivityPub',
-        ],
-    ]);
+    for ($redirects = 0; $redirects <= 3; $redirects++) {
+        $securityOptions = outbound_http_curl_security_options($url);
+        if ($securityOptions === null) {
+            return null;
+        }
 
-    $body = curl_exec($ch);
-    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+        $location = '';
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return null;
+        }
 
-    if (!is_string($body) || $status < 200 || $status >= 300) {
-        return null;
+        $body = '';
+        curl_setopt_array($ch, $securityOptions + [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_MAXFILESIZE => 1024 * 1024,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/ld+json',
+                'User-Agent: Salle des profs ActivityPub',
+            ],
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $headerLine) use (&$location): int {
+                if (stripos($headerLine, 'Location:') === 0) {
+                    $location = trim(substr($headerLine, 9));
+                }
+
+                return strlen($headerLine);
+            },
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$body): int {
+                if (strlen($body) + strlen($chunk) > 1024 * 1024) {
+                    return 0;
+                }
+
+                $body .= $chunk;
+
+                return strlen($chunk);
+            },
+        ]);
+
+        $executed = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        if ($executed !== false && $status >= 200 && $status < 300) {
+            $decoded = json_decode($body, true);
+
+            return is_array($decoded) ? $decoded : null;
+        }
+
+        if (!in_array($status, [301, 302, 303, 307, 308], true) || $location === '') {
+            return null;
+        }
+
+        $url = activitypub_resolve_redirect_url($url, $location);
+        if ($url === '') {
+            return null;
+        }
     }
 
-    $decoded = json_decode($body, true);
+    return null;
+}
 
-    return is_array($decoded) ? $decoded : null;
+function activitypub_resolve_redirect_url(string $baseUrl, string $location): string
+{
+    if (preg_match('#^https?://#i', $location) === 1) {
+        return $location;
+    }
+
+    $base = parse_url($baseUrl);
+    if (!is_array($base) || empty($base['scheme']) || empty($base['host'])) {
+        return '';
+    }
+
+    if (str_starts_with($location, '//')) {
+        return (string)$base['scheme'] . ':' . $location;
+    }
+
+    $authority = (string)$base['scheme'] . '://' . (string)$base['host'];
+    if (isset($base['port'])) {
+        $authority .= ':' . (int)$base['port'];
+    }
+
+    if (str_starts_with($location, '/')) {
+        return $authority . $location;
+    }
+
+    $basePath = (string)($base['path'] ?? '/');
+    $directory = rtrim(str_replace('\\', '/', dirname($basePath)), '/');
+
+    return $authority . ($directory === '' ? '' : $directory) . '/' . $location;
 }
 
 function activitypub_remote_actor_from_key_id(string $keyId): ?array
@@ -844,12 +913,9 @@ function activitypub_remote_actor_from_key_id(string $keyId): ?array
     $existing = db_fetch_one(
         "SELECT *
          FROM activitypub_remote_actors
-         WHERE public_key_id = :key_id OR actor_url = :actor_url
+         WHERE public_key_id = :key_id
          LIMIT 1",
-        [
-            'key_id' => $keyId,
-            'actor_url' => strtok($keyId, '#') ?: $keyId,
-        ]
+        ['key_id' => $keyId]
     );
 
     if ($existing) {
@@ -860,6 +926,14 @@ function activitypub_remote_actor_from_key_id(string $keyId): ?array
     $actor = activitypub_fetch_json($actorUrl);
 
     if (!$actor) {
+        return null;
+    }
+
+    $publicKey = is_array($actor['publicKey'] ?? null) ? $actor['publicKey'] : [];
+    if ((string)($actor['id'] ?? '') !== $actorUrl
+        || (string)($publicKey['id'] ?? '') !== $keyId
+        || (string)($publicKey['owner'] ?? '') !== $actorUrl
+    ) {
         return null;
     }
 
@@ -925,17 +999,28 @@ function activitypub_verify_http_signature(string $body): ?array
     $signature = activitypub_parse_signature_header($signatureHeader);
     $keyId = (string)($signature['keyid'] ?? '');
     $signatureValue = (string)($signature['signature'] ?? '');
-    $signedHeaders = strtolower((string)($signature['headers'] ?? 'date'));
+    $signedHeaders = strtolower(trim((string)($signature['headers'] ?? '')));
 
-    if ($keyId === '' || $signatureValue === '') {
+    if ($keyId === '' || $signatureValue === '' || $signedHeaders === '') {
         return null;
     }
 
-    if (isset($headers['digest'])) {
-        $expectedDigest = 'SHA-256=' . base64_encode(hash('sha256', $body, true));
-        if (!hash_equals($expectedDigest, $headers['digest'])) {
+    $signedHeaderNames = preg_split('/\s+/', $signedHeaders) ?: [];
+    foreach (['(request-target)', 'date', 'digest'] as $requiredHeader) {
+        if (!in_array($requiredHeader, $signedHeaderNames, true)) {
             return null;
         }
+    }
+
+    $dateHeader = (string)($headers['date'] ?? '');
+    $requestTime = strtotime($dateHeader);
+    if ($requestTime === false || abs(time() - $requestTime) > 600) {
+        return null;
+    }
+
+    $expectedDigest = 'SHA-256=' . base64_encode(hash('sha256', $body, true));
+    if (!isset($headers['digest']) || !hash_equals($expectedDigest, $headers['digest'])) {
+        return null;
     }
 
     $remote = activitypub_remote_actor_from_key_id($keyId);
@@ -945,7 +1030,7 @@ function activitypub_verify_http_signature(string $body): ?array
     }
 
     $lines = [];
-    foreach (preg_split('/\s+/', trim($signedHeaders)) ?: [] as $headerName) {
+    foreach ($signedHeaderNames as $headerName) {
         if ($headerName === '(request-target)') {
             $path = (string)($_SERVER['REQUEST_URI'] ?? '/');
             $lines[] = '(request-target): ' . strtolower((string)($_SERVER['REQUEST_METHOD'] ?? 'get')) . ' ' . $path;
@@ -959,9 +1044,14 @@ function activitypub_verify_http_signature(string $body): ?array
         $lines[] = $headerName . ': ' . $headers[$headerName];
     }
 
+    $decodedSignature = base64_decode($signatureValue, true);
+    if (!is_string($decodedSignature) || $decodedSignature === '') {
+        return null;
+    }
+
     $verified = openssl_verify(
         implode("\n", $lines),
-        base64_decode($signatureValue, true) ?: '',
+        $decodedSignature,
         (string)$remote['public_key_pem'],
         OPENSSL_ALGO_SHA256
     );
@@ -982,8 +1072,13 @@ function activitypub_handle_inbox(string $username): array
         return ['status' => 405, 'body' => ['error' => 'Méthode non autorisée.']];
     }
 
-    $body = file_get_contents('php://input');
+    $body = file_get_contents('php://input', false, null, 0, 1024 * 1024 + 1);
     $body = is_string($body) ? $body : '';
+
+    if (strlen($body) > 1024 * 1024) {
+        return ['status' => 413, 'body' => ['error' => 'Activité ActivityPub trop volumineuse.']];
+    }
+
     $activity = json_decode($body, true);
 
     if (!is_array($activity)) {
@@ -997,6 +1092,18 @@ function activitypub_handle_inbox(string $username): array
 
     $type = (string)($activity['type'] ?? '');
     $activityId = (string)($activity['id'] ?? (activitypub_base_url() . '/inbox#' . hash('sha256', $body)));
+
+    $alreadyHandled = db_fetch_one(
+        "SELECT id
+         FROM activitypub_inbox
+         WHERE activity_id = :activity_id
+         LIMIT 1",
+        ['activity_id' => $activityId]
+    );
+    if ($alreadyHandled) {
+        return ['status' => 202, 'body' => ['ok' => true]];
+    }
+
     db_insert_ignore('activitypub_inbox', [
         'user_id' => (int)$user['id'],
         'remote_actor_id' => (int)$remote['id'],
@@ -1161,6 +1268,11 @@ function activitypub_signed_post(int $userId, string $inboxUrl, string $body): a
         return ['ok' => false, 'status' => 0, 'error' => 'Extension cURL absente.'];
     }
 
+    $securityOptions = outbound_http_curl_security_options($inboxUrl);
+    if ($securityOptions === null) {
+        return ['ok' => false, 'status' => 0, 'error' => 'Inbox distante non autorisée.'];
+    }
+
     $user = db_fetch_one("SELECT id, username FROM users WHERE id = :id LIMIT 1", ['id' => $userId]);
     if (!$user) {
         return ['ok' => false, 'status' => 0, 'error' => 'Utilisateur local introuvable.'];
@@ -1196,11 +1308,17 @@ function activitypub_signed_post(int $userId, string $inboxUrl, string $body): a
     $signatureHeader = 'keyId="' . (string)$actor['actor_url'] . '#main-key",headers="(request-target) host date digest",algorithm="rsa-sha256",signature="' . base64_encode($signature) . '"';
 
     $ch = curl_init($inboxUrl);
-    curl_setopt_array($ch, [
+    if ($ch === false) {
+        return ['ok' => false, 'status' => 0, 'error' => 'Inbox distante invalide.'];
+    }
+
+    $responseBytes = 0;
+    curl_setopt_array($ch, $securityOptions + [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $body,
-        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_RETURNTRANSFER => false,
         CURLOPT_TIMEOUT => 12,
+        CURLOPT_MAXFILESIZE => 1024 * 1024,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/activity+json',
             'Accept: application/activity+json',
@@ -1210,12 +1328,16 @@ function activitypub_signed_post(int $userId, string $inboxUrl, string $body): a
             'Signature: ' . $signatureHeader,
             'User-Agent: Salle des profs ActivityPub',
         ],
+        CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$responseBytes): int {
+            $responseBytes += strlen($chunk);
+
+            return $responseBytes <= 1024 * 1024 ? strlen($chunk) : 0;
+        },
     ]);
 
     curl_exec($ch);
     $error = curl_error($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     return [
         'ok' => $status >= 200 && $status < 300,

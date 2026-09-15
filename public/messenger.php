@@ -10,6 +10,19 @@ if (!is_logged_in()) {
     redirect(url('messenger_login.php'));
 }
 
+$user = current_user();
+if (!$user || (int)$user['is_active'] !== 1) {
+    logout_user();
+    set_flash('error', 'Votre compte est désactivé.');
+    redirect(url('messenger_login.php'));
+}
+
+if (user_must_accept_charter($user)) {
+    redirect(url('charter.php'));
+}
+
+update_last_seen();
+
 if (is_post() && post_value('action') === 'logout') {
     require_csrf();
     logout_user();
@@ -20,7 +33,6 @@ if (is_post() && post_value('action') === 'logout') {
     redirect(url('messenger_login.php'));
 }
 
-$user = current_user();
 $mode = get_value('type') === 'group' ? 'group' : 'private';
 $selectedUserId = (int)get_value('user_id', '0');
 $selectedGroupId = (int)get_value('group_id', '0');
@@ -265,7 +277,7 @@ $flashes = get_flashes();
             </div>
 
             <div class="messenger-sidebar-actions">
-                <a class="button-secondary" href="<?= e(url('chat.php')) ?>">Retour au site</a>
+                <a class="button-secondary" href="<?= e(url('chat.php')) ?>" data-messenger-return>Retour au site</a>
                 <form method="post" action="<?= e(url('messenger.php')) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="logout">

@@ -65,6 +65,9 @@ $flashes = get_flashes();
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">
 </head>
 <body class="auth-page">
+    <?php $headerBrandOnly = true; ?>
+    <?php require __DIR__ . '/../templates/header.php'; ?>
+
     <main class="auth-container education-login">
         <section class="card login-card">
             <div class="login-mark" aria-hidden="true">
@@ -108,10 +111,13 @@ $flashes = get_flashes();
                 </div>
             </form>
             <p class="auth-return-link muted">
-                Pour obtenir un compte, contactez l’administrateur du site ou votre référent d’établissement.
+                Pour obtenir un compte, contactez l’administrateur du site.
             </p>
         </section>
     </main>
+
+    <?php require __DIR__ . '/../templates/footer.php'; ?>
+
     <script src="<?= e(url('assets/app.js') . '?v=' . filemtime(__DIR__ . '/assets/app.js')) ?>"></script>
     <script>
         if (typeof typesetMath === 'function') {

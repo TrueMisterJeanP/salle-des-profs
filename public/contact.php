@@ -10,17 +10,15 @@ require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/contact_messages.php';
 
-require_login();
+if (!database_is_installed()) {
+    redirect(root_url('install.php'));
+}
 
 $siteName = site_name();
 $siteLogoUrl = site_logo_url();
 $siteIcon = site_icon();
 $errors = [];
 $notifiedAdmins = 0;
-
-if (!database_is_installed()) {
-    redirect(root_url('install.php'));
-}
 
 contact_messages_ensure_table();
 
@@ -35,6 +33,8 @@ if (is_post()) {
 
     if ($name === '') {
         $errors[] = 'Votre nom est obligatoire.';
+    } elseif (mb_strlen($name, 'UTF-8') > 160) {
+        $errors[] = 'Votre nom ne doit pas dépasser 160 caractères.';
     }
 
     if (!is_valid_email($email)) {
@@ -43,14 +43,24 @@ if (is_post()) {
 
     if ($subject === '') {
         $errors[] = 'Le sujet est obligatoire.';
+    } elseif (mb_strlen($subject, 'UTF-8') > 220) {
+        $errors[] = 'Le sujet ne doit pas dépasser 220 caractères.';
     }
 
     if ($message === '') {
         $errors[] = 'Le message est obligatoire.';
+    } elseif (mb_strlen($message, 'UTF-8') > 20000) {
+        $errors[] = 'Le message ne doit pas dépasser 20 000 caractères.';
     }
 
     if (!contact_captcha_verify($captchaAnswer)) {
         $errors[] = 'Réponse au calcul incorrecte.';
+    }
+
+    $retryAfter = contact_message_retry_after(contact_message_ip_address());
+    if ($retryAfter > 0) {
+        $errors[] = 'Trop de messages ont été envoyés récemment. Réessayez dans '
+            . max(1, (int)ceil($retryAfter / 60)) . ' minute(s).';
     }
 
     if (!$errors) {
@@ -109,6 +119,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Contact — <?= e($siteName) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -142,7 +153,7 @@ $flashes = get_flashes();
         <?php endif; ?>
 
         <section class="card about-card">
-            <h1>Contact</h1>
+            <h1>Nous contacter</h1>
             <p class="muted">
                 Envoyez un message aux administrateurs du site.
             </p>
@@ -157,6 +168,7 @@ $flashes = get_flashes();
                     name="name"
                     value="<?= e(post_value('name')) ?>"
                     required
+                    maxlength="160"
                     autocomplete="name"
                 >
 
@@ -167,6 +179,7 @@ $flashes = get_flashes();
                     name="email"
                     value="<?= e(post_value('email')) ?>"
                     required
+                    maxlength="254"
                     autocomplete="email"
                 >
 
@@ -177,6 +190,7 @@ $flashes = get_flashes();
                     name="subject"
                     value="<?= e(post_value('subject')) ?>"
                     required
+                    maxlength="220"
                 >
 
                 <label for="message">Message</label>
@@ -185,6 +199,7 @@ $flashes = get_flashes();
                     name="message"
                     rows="10"
                     required
+                    maxlength="20000"
                 ><?= e((string)($_POST['message'] ?? '')) ?></textarea>
 
                 <label for="captcha_answer">Anti-robot : combien font <?= e($captchaQuestion) ?> ?</label>

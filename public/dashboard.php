@@ -20,7 +20,6 @@ $recentArticles = [];
 $recentEvents = [];
 $recentIncidents = [];
 $recentActions = [];
-$recentResources = [];
 $federatedItems = [];
 $federationError = '';
 $federationEmptyMessage = 'Aucun événement, incident ou plan d’action public reçu. Le site suivi doit exporter au moins un élément de protection en visibilité Public.';
@@ -261,34 +260,29 @@ try {
     );
 
     $recentEvents = db_fetch_all(
-        "SELECT *
-         FROM protection_events
-         WHERE is_active = 1
-         ORDER BY starts_at DESC, created_at DESC
+        "SELECT dashboard_events.*
+         FROM protection_events dashboard_events
+         WHERE dashboard_events.is_active = 1
+           AND " . protection_user_visibility_where($user, 'dashboard_events') . "
+         ORDER BY dashboard_events.starts_at DESC, dashboard_events.created_at DESC
          LIMIT 1"
     );
 
     $recentIncidents = db_fetch_all(
-        "SELECT *
-         FROM protection_incidents
-         WHERE is_active = 1
-         ORDER BY occurred_at DESC, created_at DESC
+        "SELECT dashboard_incidents.*
+         FROM protection_incidents dashboard_incidents
+         WHERE dashboard_incidents.is_active = 1
+           AND " . protection_user_visibility_where($user, 'dashboard_incidents') . "
+         ORDER BY dashboard_incidents.occurred_at DESC, dashboard_incidents.created_at DESC
          LIMIT 1"
     );
 
     $recentActions = db_fetch_all(
-        "SELECT *
-         FROM protection_action_plans
-         WHERE is_active = 1
-         ORDER BY created_at DESC
-         LIMIT 1"
-    );
-
-    $recentResources = db_fetch_all(
-        "SELECT *
-         FROM protection_resources
-         WHERE is_active = 1
-         ORDER BY created_at DESC
+        "SELECT dashboard_actions.*
+         FROM protection_action_plans dashboard_actions
+         WHERE dashboard_actions.is_active = 1
+           AND " . protection_user_visibility_where($user, 'dashboard_actions') . "
+         ORDER BY dashboard_actions.created_at DESC
          LIMIT 1"
     );
 
@@ -314,6 +308,7 @@ try {
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Tableau de bord — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -330,16 +325,17 @@ try {
             </div>
         <?php endforeach; ?>
 
-        <section class="card">
+        <section class="card dashboard-welcome-card">
             <h1>Bienvenue, <?= e($user['display_name'] ?: $user['username']) ?></h1>
             <p class="muted">
                 Cet espace est destiné à la <b>protection des enseignants par les enseignants</b> : suivi collectif des faits d’établissement,
                 réponses institutionnelles, appuis syndicaux, publications et articles.
             </p>
 
-            <div class="form-actions">
+            <div class="form-actions dashboard-quick-actions">
                 <a class="button-protection" href="<?= e(url('protection.php')) ?>">Établissement</a>
                 <a class="button-syndicate" href="<?= e(url('syndicates.php')) ?>">Syndicats</a>
+                <a class="button-secondary button-resource" href="<?= e(url('resources.php')) ?>">Ressources</a>
                 <a class="button-secondary" href="<?= e(url('feed.php')) ?>">Mes annonces</a>
                 <a class="button-secondary" href="<?= e(url('articles.php')) ?>">Mes articles</a>
                 <a class="button-secondary" href="<?= e(url('chat.php')) ?>">Messagerie</a>
@@ -439,7 +435,7 @@ try {
         <section class="grid grid-4 dashboard-protection-grid dashboard-protection-row">
             <article class="card">
                 <div class="section-heading-row">
-                    <h2>Dernier événement</h2>
+                    <h2>Événement</h2>
                 </div>
 
                 <?php if (!$recentEvents): ?>
@@ -468,7 +464,7 @@ try {
 
           <article class="card">
             <div class="section-heading-row">
-              <h2>Dernier incident</h2>
+              <h2>Incident</h2>
             </div>
             
             <?php if (!$recentIncidents): ?>
@@ -499,7 +495,7 @@ try {
 
             <article class="card">
                 <div class="section-heading-row">
-                    <h2>Dernière action</h2>
+                    <h2>Action</h2>
                 </div>
 
                 <?php if (!$recentActions): ?>
@@ -524,32 +520,11 @@ try {
                 <?php endif; ?>
             </article>
 
-            <article class="card">
-                <div class="section-heading-row">
-                    <h2>Dernière ressource</h2>
-                </div>
-
-                <?php if (!$recentResources): ?>
-                    <p class="muted">Pas de ressource enregistrée.</p>
-                <?php else: ?>
-                    <div class="compact-list">
-                        <?php foreach ($recentResources as $resource): ?>
-                            <article>
-                                <strong><?= e($resource['title']) ?></strong>
-                                <p class="meta">
-                                    <?= e($resource['created_at']) ?>
-                                </p>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </article>
-
         </section>
 
         <section class="grid grid-2 dashboard-latest-grid dashboard-latest-row">
             <article class="card" id="dashboard-latest-posts" data-dashboard-paged-panel data-page-size="<?= e((string)$dashboardPanelPageSize) ?>">
-                <h2>Dernières annonces</h2>
+                <h2>Annonces</h2>
 
                 <?php if (!$recentPosts): ?>
                     <p class="muted">Aucune publication pour l’instant.</p>
@@ -608,7 +583,7 @@ try {
             </article>
 
             <article class="card" id="dashboard-latest-articles" data-dashboard-paged-panel data-page-size="<?= e((string)$dashboardPanelPageSize) ?>">
-                <h2>Derniers articles</h2>
+                <h2>Articles</h2>
 
                 <?php if (!$recentArticles): ?>
                     <p class="muted">Aucun article publié pour l’instant.</p>
@@ -647,6 +622,7 @@ try {
         </section>
             </div>
         </section>
+
     </main>
 
     <?php require __DIR__ . '/../templates/footer.php'; ?>

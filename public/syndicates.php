@@ -260,6 +260,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Syndicats — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -272,7 +273,6 @@ $flashes = get_flashes();
     <?php if ($errors): ?><div class="flash flash-error"><strong>Erreur :</strong><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
     <section class="syndicate-hero">
         <div>
-            <p class="meta">Sections syndicales · permanences et contacts</p>
             <h1>Syndicats</h1>
             <p>Retrouvez les coordonnées, permanences, lieux de rencontre et annonces des organisations syndicales.</p>
         </div>
@@ -286,7 +286,7 @@ $flashes = get_flashes();
         <div class="syndicates-overview-sidebar">
             
             <article class="card dashboard-card">
-                <h2>Syndicats enregistrés</h2>
+                <h2>Syndicats présents</h2>
                 <p class="stat"><?= e((string)count($boards)) ?></p>
                 <p class="muted">syndicat(s) actif(s)</p>
             </article>

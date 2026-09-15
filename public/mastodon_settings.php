@@ -30,8 +30,8 @@ if (is_post()) {
 
     $allowedVisibilities = ['public', 'unlisted', 'private'];
 
-    if ($instanceUrl !== '' && !filter_var($instanceUrl, FILTER_VALIDATE_URL)) {
-        $errors[] = 'L’URL de l’instance Mastodon est invalide.';
+    if ($instanceUrl !== '' && !outbound_http_url_is_safe($instanceUrl)) {
+        $errors[] = 'L’URL Mastodon doit désigner une instance publique accessible en HTTP ou HTTPS.';
     }
 
     if (!in_array($defaultVisibility, $allowedVisibilities, true)) {
@@ -66,6 +66,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Mastodon — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -93,7 +94,7 @@ $flashes = get_flashes();
         <?php endif; ?>
 
         <section class="card">
-            <h1>Connexion Mastodon</h1>
+            <h1>Mastodon</h1>
             <p class="muted">
                 Configurez un compte Mastodon pour publier manuellement certains contenus publics.
             </p>

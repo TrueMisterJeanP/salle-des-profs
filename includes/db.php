@@ -64,9 +64,12 @@ function database_write_config(array $config): void
 
     $php = "<?php\nreturn " . var_export($config, true) . ";\n";
 
-    if (file_put_contents(database_config_path(), $php, LOCK_EX) === false) {
+    $configPath = database_config_path();
+    if (file_put_contents($configPath, $php, LOCK_EX) === false) {
         throw new RuntimeException('Impossible d’écrire la configuration de base de données.');
     }
+
+    @chmod($configPath, 0600);
 }
 
 function db_driver(): string

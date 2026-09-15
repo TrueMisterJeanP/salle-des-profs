@@ -79,11 +79,12 @@ function contact_captcha_verify(string $answer): bool
 {
     csrf_start_session();
 
-    if (!isset($_SESSION['contact_captcha_answer'])) {
+    $answer = trim($answer);
+    if (!isset($_SESSION['contact_captcha_answer']) || preg_match('/^\d+$/', $answer) !== 1) {
         return false;
     }
 
-    return (int)$answer === (int)$_SESSION['contact_captcha_answer'];
+    return hash_equals((string)(int)$_SESSION['contact_captcha_answer'], $answer);
 }
 
 function contact_captcha_clear(): void
@@ -95,4 +96,34 @@ function contact_captcha_clear(): void
 function contact_message_ip_address(): string
 {
     return function_exists('activity_log_ip_address') ? activity_log_ip_address() : '';
+}
+
+function contact_message_retry_after(string $ipAddress): int
+{
+    if ($ipAddress === '') {
+        return 0;
+    }
+
+    $windowSeconds = 15 * 60;
+    $windowStart = date('Y-m-d H:i:s', time() - $windowSeconds);
+    $row = db_fetch_one(
+        "SELECT COUNT(*) AS total, MIN(created_at) AS first_message_at
+         FROM contact_messages
+         WHERE ip_address = :ip_address
+           AND created_at >= :window_start",
+        [
+            'ip_address' => $ipAddress,
+            'window_start' => $windowStart,
+        ]
+    );
+
+    if ((int)($row['total'] ?? 0) < 5) {
+        return 0;
+    }
+
+    $firstMessageAt = strtotime((string)($row['first_message_at'] ?? ''));
+
+    return $firstMessageAt === false
+        ? $windowSeconds
+        : max(1, ($firstMessageAt + $windowSeconds) - time());
 }

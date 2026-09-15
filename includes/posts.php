@@ -446,7 +446,8 @@ function post_poll_visitor_key(): string
     setcookie('post_poll_visitor', $key, [
         'expires' => time() + 365 * 24 * 60 * 60,
         'path' => '/',
-        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || parse_url(BASE_URL, PHP_URL_SCHEME) === 'https',
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -1124,9 +1125,18 @@ function render_post_attachments(array $post): string
     return (string)ob_get_clean();
 }
 
-function render_post_comments(array $post, string $actionUrl, string $actionsBeforeHtml = '', string $actionsAfterHtml = ''): string
+function post_comment_can_delete(array $comment, array $post, array $user): bool
+{
+    $userId = (int)($user['id'] ?? 0);
+    return $userId > 0 && (($user['role'] ?? '') === 'admin'
+        || (int)($comment['user_id'] ?? 0) === $userId
+        || (int)($post['author_id'] ?? 0) === $userId);
+}
+
+function render_post_comments(array $post, string $actionUrl, string $actionsBeforeHtml = '', string $actionsAfterHtml = '', bool $showCommentForm = true): string
 {
     $comments = $post['comments'] ?? [];
+    $commentViewer = current_user() ?? [];
     $postId = (int)$post['id'];
     $formId = 'post-comment-form-' . $postId;
     $textareaId = 'post-comment-' . $postId;
@@ -1147,11 +1157,25 @@ function render_post_comments(array $post, string $actionUrl, string $actionsBef
                             <?= e((string)($comment['display_name'] ?: $comment['username'])) ?>
                             · <?= e((string)$comment['created_at']) ?>
                         </p>
+                        <?php if (post_comment_can_delete($comment, $post, $commentViewer)): ?>
+                            <form class="comment-delete-form" method="post" action="<?= e($actionUrl) ?>" onsubmit="return confirm('Supprimer ce commentaire ?');">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="delete_comment">
+                                <input type="hidden" name="post_id" value="<?= e((string)$postId) ?>">
+                                <input type="hidden" name="comment_id" value="<?= e((string)$comment['id']) ?>">
+                                <button type="submit" class="comment-delete-button" aria-label="Supprimer le commentaire" title="Supprimer le commentaire">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+                                    </svg>
+                                </button>
+                            </form>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
 
+        <?php if ($showCommentForm): ?>
         <form id="<?= e($formId) ?>" class="post-comment-form" method="post" action="<?= e($actionUrl) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="post_comment">
@@ -1159,9 +1183,12 @@ function render_post_comments(array $post, string $actionUrl, string $actionsBef
             <label for="<?= e($textareaId) ?>">Ajouter un commentaire</label>
             <textarea id="<?= e($textareaId) ?>" name="comment_content" required placeholder="Répondre à cette annonce..."></textarea>
         </form>
+        <?php endif; ?>
         <div class="form-actions post-feed-actions">
             <?= $actionsBeforeHtml ?>
+            <?php if ($showCommentForm): ?>
             <button type="submit" class="button-secondary post-action-comment" form="<?= e($formId) ?>">Commenter</button>
+            <?php endif; ?>
             <?= $actionsAfterHtml ?>
         </div>
     </section>

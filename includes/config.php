@@ -6,8 +6,8 @@ declare(strict_types=1);
  */
 
 const APP_NAME = 'Salle des profs';
-const APP_VERSION = '1.0.0';
-const APP_ENV = 'development'; // development ou production
+const APP_VERSION = '1.0.1';
+const APP_ENV = 'production'; // development ou production
 
 /**
  * URL de base de l'application. Peut être forcée avec APP_BASE_URL.
@@ -100,6 +100,19 @@ function app_development_root_install_allowed(): bool
 
 define('BASE_URL', app_detect_base_url());
 
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header_remove('X-Powered-By');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+
+    if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || parse_url(BASE_URL, PHP_URL_SCHEME) === 'https'
+    ) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
+}
+
 /**
  * Chemins internes.
  */
@@ -176,5 +189,5 @@ if (APP_ENV === 'development') {
 } else {
     ini_set('display_errors', '0');
     ini_set('display_startup_errors', '0');
-    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 }

@@ -10,6 +10,8 @@ require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/markdown.php';
 require_once __DIR__ . '/../includes/attachments.php';
 
+start_app_session();
+
 $slug = get_value('slug');
 
 if ($slug === '') {
@@ -91,15 +93,19 @@ $siteIcon = site_icon();
 <body>
     <header class="site-header">
         <div class="container site-header-inner">
-            <a class="brand <?= $siteLogoUrl !== '' || $siteIcon !== '' ? 'brand-has-icon' : '' ?>" href="<?= e(url('public.php')) ?>">
+            <a class="brand" href="<?= e(url('public.php')) ?>">
                 <?php if ($siteLogoUrl !== ''): ?>
                     <span class="brand-icon brand-logo" aria-hidden="true">
                         <img src="<?= e($siteLogoUrl) ?>" alt="">
                     </span>
                 <?php elseif ($siteIcon !== ''): ?>
                     <span class="brand-icon" aria-hidden="true"><?= e($siteIcon) ?></span>
+                <?php else: ?>
+                    <span class="brand-default-icon" aria-hidden="true">
+                        <img src="<?= e(url('assets/default-site-icon.png')) ?>" alt="">
+                    </span>
                 <?php endif; ?>
-                <?= e($siteName) ?>
+                <span class="brand-name"><?= e($siteName) ?></span>
             </a>
 
             <button class="site-menu-toggle site-menu-vertical-toggle" type="button" data-site-menu-toggle="site-public-menu" aria-controls="site-public-menu" aria-expanded="false">

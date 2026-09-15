@@ -105,6 +105,7 @@ if (!$canAccess) {
 
 /**
  * 5. Fichier joint à un article :
+ * - article public/publié : tout le monde
  * - article membres/publié : utilisateurs connectés
  * - article groupe/publié : membres du groupe
  * - article privé/brouillon : auteur ou admin uniquement
@@ -112,17 +113,20 @@ if (!$canAccess) {
 if (!$canAccess) {
     ensure_article_attachments_table();
 
-    $linkedArticle = db_fetch_one(
+    $linkedArticles = db_fetch_all(
         "SELECT articles.*
          FROM article_attachments
          JOIN articles ON articles.id = article_attachments.article_id
          WHERE article_attachments.attachment_id = :attachment_id
-         LIMIT 1",
+         ORDER BY articles.created_at DESC
+         LIMIT 50",
         ['attachment_id' => $attachmentId]
     );
 
-    if ($linkedArticle) {
-        if (
+    foreach ($linkedArticles as $linkedArticle) {
+        if ($linkedArticle['status'] === 'published' && $linkedArticle['visibility'] === 'public') {
+            $canAccess = true;
+        } elseif (
             $user
             && $linkedArticle['status'] === 'published'
             && $linkedArticle['visibility'] === 'members'
@@ -144,6 +148,10 @@ if (!$canAccess) {
             )
         ) {
             $canAccess = true;
+        }
+
+        if ($canAccess) {
+            break;
         }
     }
 }

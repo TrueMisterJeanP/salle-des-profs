@@ -8,7 +8,9 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/markdown.php';
 
-require_login();
+if (!database_is_installed()) {
+    redirect(root_url('install.php'));
+}
 
 $siteName = site_name();
 $siteLogoUrl = site_logo_url();
@@ -18,6 +20,7 @@ $aboutContent = about_content();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>À propos — <?= e($siteName) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">

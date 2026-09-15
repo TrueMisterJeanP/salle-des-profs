@@ -6,6 +6,7 @@
 .env.*
 !.env.example
 database/database.config.php
+database/.auth_fingerprint_key
 
 # Bases de données d'exploitation
 database/*.sqlite
@@ -21,6 +22,7 @@ database/migrations/02[0-3]_*.sql
 # Contenus et fichiers téléversés
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess
 !uploads/avatars/
 !uploads/attachments/
 !uploads/site/

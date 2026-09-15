@@ -45,7 +45,31 @@ if (is_post()) {
     $selectedGroupId = null;
     $allowedVisibilities = array_keys(content_visibility_options(true));
 
-    if ($action === 'poll_vote') {
+    if ($action === 'delete_comment') {
+        posts_ensure_comments_table();
+        $commentPostId = (int)post_value('post_id', '0');
+        $commentId = (int)post_value('comment_id', '0');
+        $comment = db_fetch_one(
+            "SELECT c.*, p.author_id
+             FROM comments c
+             JOIN posts p ON p.id = c.target_id
+             WHERE c.id = :id AND c.target_type = 'post'
+               AND c.target_id = :post_id AND c.is_deleted = 0
+             LIMIT 1",
+            ['id' => $commentId, 'post_id' => $commentPostId]
+        );
+        if (!$comment || !post_comment_can_delete($comment, $comment, $user)) {
+            $errors[] = 'Commentaire introuvable ou suppression non autorisée.';
+        } else {
+            db_query(
+                "UPDATE comments SET is_deleted = 1, updated_at = :updated_at
+                 WHERE id = :id AND target_type = 'post' AND target_id = :post_id",
+                ['updated_at' => now(), 'id' => $commentId, 'post_id' => $commentPostId]
+            );
+            set_flash('success', 'Commentaire supprimé.');
+            redirect($returnUrl . '#post-' . $commentPostId);
+        }
+    } elseif ($action === 'poll_vote') {
         try {
             $votePostId = (int)post_value('post_id', '0');
             post_poll_submit_vote($votePostId, (int)post_value('option_id', '0'), (int)$user['id'], 'feed');
@@ -288,16 +312,20 @@ $posts = posts_attach_attachments(posts_attach_comments(posts_attach_polls($post
 
 $flashes = get_flashes();
 $createVisibility = post_value('visibility', $defaultVisibility);
+$showCreateForm = !$editPost && (get_value('create', '0') === '1'
+    || (is_post() && post_value('action', 'create') === 'create'));
+$createUrl = $returnUrl . ($page > 1 ? '&' : '?') . 'create=1#nouvelle-annonce';
 ?>
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Mes annonces — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">
 </head>
-<body>
+<body class="feed-page">
     <?php require __DIR__ . '/../templates/header.php'; ?>
 
     <main class="container page">
@@ -323,10 +351,14 @@ $createVisibility = post_value('visibility', $defaultVisibility);
             <p class="muted">
                 Publiez des messages courts, des idées, des annonces ou des ressources rapides.
             </p>
+            <div class="form-actions">
+                <a class="button-primary" href="<?= e($createUrl) ?>">Nouvelle annonce</a>
+            </div>
         </section>
 
-        <section class="card">
-            <h2>Nouvelle publication</h2>
+        <?php if ($showCreateForm): ?>
+        <section class="card" id="nouvelle-annonce">
+            <h2>Nouvelle annonce</h2>
 
             <form method="post" action="">
                 <?= csrf_field() ?>
@@ -444,9 +476,11 @@ $createVisibility = post_value('visibility', $defaultVisibility);
 
                 <div class="form-actions">
                     <button type="submit" class="button-primary">Publier</button>
+                    <a class="button-secondary" href="<?= e($returnUrl) ?>">Annuler</a>
                 </div>
             </form>
         </section>
+        <?php endif; ?>
 
         <?php if ($editPost): ?>
             <section class="card" id="modifier-post">
@@ -595,6 +629,7 @@ $createVisibility = post_value('visibility', $defaultVisibility);
             </section>
         <?php endif; ?>
         
+        <?php if (!$showCreateForm): ?>
         <?php if ($totalPages > 1): ?>
             <section class="card">
                 <?= render_pagination($page, $totalPages) ?>
@@ -678,11 +713,12 @@ $createVisibility = post_value('visibility', $defaultVisibility);
                             <?php $postActionsBeforeHtml = ''; ?>
                             <?php $postActionsAfterHtml = ''; ?>
                         <?php endif; ?>
-                        <?= render_post_comments($post, $returnUrl . '#post-' . (int)$post['id'], $postActionsBeforeHtml, $postActionsAfterHtml) ?>
+                        <?= render_post_comments($post, $returnUrl . '#post-' . (int)$post['id'], $postActionsBeforeHtml, $postActionsAfterHtml, false) ?>
                     </article>
                 <?php endforeach; ?>
             <?php endif; ?>
         </section>
+        <?php endif; ?>
     </main>
     
     <?php require __DIR__ . '/../templates/footer.php'; ?>

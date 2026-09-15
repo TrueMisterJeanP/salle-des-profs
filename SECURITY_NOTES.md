@@ -4,14 +4,16 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 
 ## Déploiement
 
-- Passer `APP_ENV` à `production` dans `includes/config.php` en production afin de désactiver l’affichage des erreurs PHP.
+- Conserver `APP_ENV` à `production` afin de désactiver l’affichage des erreurs PHP.
+- Définir `APP_BASE_URL` avec l’URL HTTPS publique exacte du site.
 - Placer `database/` et `uploads/` hors du document root web quand c’est possible.
-- Si `uploads/` reste accessible par le serveur web, désactiver l’exécution de scripts dans ce dossier au niveau Apache/Nginx. Les fichiers doivent être servis via `public/file.php`, qui vérifie les droits d’accès.
+- Les règles Apache fournies refusent l’accès direct à `database/` et `uploads/`. Reproduire ces règles sous Nginx ou tout autre serveur. Les fichiers doivent être servis via `public/file.php`, qui vérifie les droits d’accès.
 - Servir l’application en HTTPS afin de protéger les sessions et les jetons Mastodon.
 
 ## Sessions
 
-- En production HTTPS, forcer des cookies `Secure`.
+- Les sessions utilisent des cookies `HttpOnly`, `SameSite=Lax` et `Secure` sous HTTPS.
+- Déclarer les proxys inverses de confiance dans `TRUSTED_PROXY_IPS` afin de fiabiliser la limitation des tentatives de connexion.
 - Envisager une durée d’inactivité maximale côté serveur pour les sessions.
 
 ## Jetons Mastodon
@@ -23,7 +25,7 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 
 - Les extensions enregistrées sont forcées d’après le MIME détecté, mais la détection MIME reste une défense imparfaite.
 - Pour un usage public ou multi-tenant, ajouter une analyse antivirus et éventuellement une génération de vignettes côté serveur pour les images.
-- Ajouter une règle serveur refusant l’accès direct aux fichiers uploadés si le serveur expose le dossier `uploads/`.
+- Conserver les règles serveur refusant l’accès direct aux fichiers uploadés si le serveur expose le dossier `uploads/`.
 
 ## Autorisations
 
@@ -34,7 +36,8 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 ## Navigateur
 
 - Ajouter une politique CSP adaptée après inventaire des scripts/styles réellement nécessaires.
-- Ajouter les en-têtes de sécurité au niveau serveur : `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy` et `X-Frame-Options` ou `frame-ancestors`.
+- Les en-têtes `Referrer-Policy`, `X-Frame-Options` et `X-Content-Type-Options` sont appliqués par PHP et Apache.
+- Ajouter ultérieurement une politique CSP adaptée après suppression ou mise sous nonce des scripts et styles intégrés aux pages.
 
 ## Journalisation
 

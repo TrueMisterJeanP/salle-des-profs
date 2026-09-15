@@ -200,7 +200,7 @@ if (is_post()) {
         foreach ($federationFollowSlots as $slot) {
             $slotLabel = 'flux fédéré #' . $slot['index'];
 
-            if ($slot['url'] !== '' && filter_var($slot['url'], FILTER_VALIDATE_URL) === false) {
+            if ($slot['url'] !== '' && !http_url_has_allowed_scheme($slot['url'])) {
                 $errors[] = 'URL du ' . $slotLabel . ' invalide.';
             }
 
@@ -407,6 +407,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Configuration — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">

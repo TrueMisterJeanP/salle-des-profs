@@ -94,6 +94,7 @@ function save_uploaded_attachment(array $file, int $userId, string $uploadType =
     $safeName = bin2hex(random_bytes(16)) . '.' . $extension;
     $destinationPath = rtrim($destinationDir, '/\\') . DIRECTORY_SEPARATOR . $safeName;
     $relativePath = upload_logical_path($publicSubdir, $safeName);
+    $createdAt = now();
     $pdo = db();
     $moved = false;
 
@@ -121,7 +122,7 @@ function save_uploaded_attachment(array $file, int $userId, string $uploadType =
                 'mime_type' => $mimeType,
                 'size' => $size,
                 'path' => $relativePath,
-                'created_at' => now(),
+                'created_at' => $createdAt,
             ]
         );
 
@@ -161,6 +162,7 @@ function save_uploaded_attachment(array $file, int $userId, string $uploadType =
         'mime_type' => $mimeType,
         'size' => $size,
         'path' => $relativePath,
+        'created_at' => $createdAt,
     ];
 }
 
@@ -273,23 +275,39 @@ function remove_article_attachment(int $articleId, int $attachmentId): void
     );
 }
 
+function remove_attachment_markdown_links(string $content, array $attachmentIds): string
+{
+    $attachmentIds = array_values(array_unique(array_filter(array_map('intval', $attachmentIds))));
+
+    foreach ($attachmentIds as $attachmentId) {
+        $pattern = '~!?\[[^\]\r\n]*\]\(\s*[^)\r\n]*file\.php\?[^)\r\n]*\bid='
+            . preg_quote((string)$attachmentId, '~')
+            . '(?!\d)[^)\r\n]*\)~iu';
+        $content = (string)preg_replace($pattern, '', $content);
+    }
+
+    return $content;
+}
+
 function sync_article_attachments(int $articleId, array $attachmentIds, int $userId): void
 {
     ensure_article_attachments_table();
 
     $attachmentIds = array_values(array_unique(array_filter(array_map('intval', $attachmentIds))));
 
-    db_query(
-        "DELETE FROM article_attachments WHERE article_id = :article_id",
-        ['article_id' => $articleId]
-    );
-
     if (!$attachmentIds) {
+        db_query(
+            "DELETE FROM article_attachments WHERE article_id = :article_id",
+            ['article_id' => $articleId]
+        );
         return;
     }
 
     $placeholders = [];
-    $params = ['user_id' => $userId];
+    $params = [
+        'user_id' => $userId,
+        'article_id' => $articleId,
+    ];
 
     foreach ($attachmentIds as $index => $attachmentId) {
         $key = 'attachment_id_' . $index;
@@ -298,16 +316,29 @@ function sync_article_attachments(int $articleId, array $attachmentIds, int $use
     }
 
     $rows = db_fetch_all(
-        "SELECT id
+        "SELECT attachments.id
          FROM attachments
-         WHERE user_id = :user_id
-           AND id IN (" . implode(',', $placeholders) . ")",
+         WHERE attachments.id IN (" . implode(',', $placeholders) . ")
+           AND (
+                attachments.user_id = :user_id
+                OR EXISTS (
+                    SELECT 1
+                    FROM article_attachments existing_article_attachment
+                    WHERE existing_article_attachment.article_id = :article_id
+                      AND existing_article_attachment.attachment_id = attachments.id
+                )
+           )",
         $params
     );
 
     $allowedAttachmentIds = array_fill_keys(
         array_map(static fn (array $row): int => (int)$row['id'], $rows),
         true
+    );
+
+    db_query(
+        "DELETE FROM article_attachments WHERE article_id = :article_id",
+        ['article_id' => $articleId]
     );
 
     foreach ($attachmentIds as $attachmentId) {

@@ -84,6 +84,7 @@ if (!in_array($visibility, array_keys(content_visibility_options(true)), true)) 
 $status = $article['status'] ?? 'draft';
 $selectedAttachmentIds = [];
 $linkedAttachments = [];
+$existingAttachmentIds = $articleId > 0 ? article_attachment_ids($articleId) : [];
 
 if (is_post()) {
     require_csrf();
@@ -103,10 +104,34 @@ if (is_post()) {
 
         if (!$errors) {
             try {
+                $beforeActivityPubArticle = activitypub_article_by_id_for_event($articleId);
+                $updatedContent = remove_attachment_markdown_links((string)$article['content'], [$attachmentId]);
+                $pdo = db();
+                ensure_article_attachments_table();
+                article_ensure_tag_tables();
+                $pdo->beginTransaction();
+
                 remove_article_attachment($articleId, $attachmentId);
+                if ($updatedContent !== (string)$article['content']) {
+                    db_query(
+                        "UPDATE articles SET content = :content, updated_at = :updated_at WHERE id = :id",
+                        [
+                            'content' => $updatedContent,
+                            'updated_at' => now(),
+                            'id' => $articleId,
+                        ]
+                    );
+                    article_sync_tags($articleId, (string)$article['title'], $updatedContent);
+                }
+
+                $pdo->commit();
+                activitypub_after_article_change($beforeActivityPubArticle, $articleId);
                 set_flash('success', 'Fichier retiré de l’article.');
                 redirect(url('article_edit.php?id=' . $articleId));
             } catch (Throwable $e) {
+                if (isset($pdo) && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 $errors[] = 'Erreur : ' . $e->getMessage();
             }
         }
@@ -120,6 +145,14 @@ if (is_post()) {
         $selectedAttachmentIds = array_values(array_unique(array_filter(
             array_map('intval', (array)($_POST['attachment_ids'] ?? []))
         )));
+
+        if ($articleId > 0) {
+            $removedAttachmentIds = array_values(array_diff(
+                $existingAttachmentIds,
+                $selectedAttachmentIds
+            ));
+            $content = remove_attachment_markdown_links($content, $removedAttachmentIds);
+        }
 
         $allowedVisibilities = array_keys(content_visibility_options(true));
         $allowedStatuses = ['draft', 'published'];
@@ -154,11 +187,22 @@ if (is_post()) {
                 $params[$key] = $attachmentId;
             }
 
+            $attachmentAccessSql = 'attachments.user_id = :user_id';
+            if ($articleId > 0) {
+                $attachmentAccessSql .= " OR EXISTS (
+                    SELECT 1
+                    FROM article_attachments existing_article_attachment
+                    WHERE existing_article_attachment.article_id = :article_id
+                      AND existing_article_attachment.attachment_id = attachments.id
+                )";
+                $params['article_id'] = $articleId;
+            }
+
             $ownedAttachments = db_fetch_all(
-                "SELECT id
+                "SELECT attachments.id
                  FROM attachments
-                 WHERE user_id = :user_id
-                   AND id IN (" . implode(',', $placeholders) . ")",
+                 WHERE attachments.id IN (" . implode(',', $placeholders) . ")
+                   AND ($attachmentAccessSql)",
                 $params
             );
 
@@ -273,11 +317,21 @@ if (is_post()) {
 $availableAttachments = user_attachment_options((int)$user['id']);
 
 if (!is_post() && $articleId > 0) {
-    $selectedAttachmentIds = article_attachment_ids($articleId);
+    $selectedAttachmentIds = $existingAttachmentIds;
 }
 
 if ($articleId > 0) {
     $linkedAttachments = article_attachment_options($articleId);
+
+    $availableAttachmentIds = array_fill_keys(
+        array_map(static fn (array $attachment): int => (int)$attachment['id'], $availableAttachments),
+        true
+    );
+    foreach ($linkedAttachments as $linkedAttachment) {
+        if (!isset($availableAttachmentIds[(int)$linkedAttachment['id']])) {
+            $availableAttachments[] = $linkedAttachment;
+        }
+    }
 }
 
 $flashes = get_flashes();
@@ -286,6 +340,7 @@ $pageTitle = $articleId > 0 ? 'Modifier l’article' : 'Nouvel article';
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title><?= e($pageTitle) ?> — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -396,42 +451,53 @@ $pageTitle = $articleId > 0 ? 'Modifier l’article' : 'Nouvel article';
                 ><?= e($content) ?></textarea>
 
                 <?php if ($availableAttachments): ?>
-                    <label for="article-attachments">Fichiers joints</label>
-                    <select id="article-attachments" name="attachment_ids[]" multiple size="6" data-markdown-attachment-select>
+                    <span class="form-label" id="article-attachments-label">Fichiers joints</span>
+                    <div class="article-attachment-picker" id="article-attachments" role="group" aria-labelledby="article-attachments-label">
                         <?php foreach ($availableAttachments as $attachment): ?>
-                            <option
-                                value="<?= e((string)$attachment['id']) ?>"
-                                data-url="<?= e(url('file.php?id=' . (int)$attachment['id'])) ?>"
-                                data-name="<?= e($attachment['original_name']) ?>"
-                                data-mime="<?= e($attachment['mime_type']) ?>"
-                                <?= in_array((int)$attachment['id'], $selectedAttachmentIds, true) ? 'selected' : '' ?>
-                            >
-                                <?= e($attachment['original_name'] . ' — ' . human_file_size((int)$attachment['size'])) ?>
-                            </option>
+                            <?php $attachmentInputId = 'article_attachment_' . (int)$attachment['id']; ?>
+                            <div class="article-attachment-option">
+                                <label for="<?= e($attachmentInputId) ?>">
+                                    <input
+                                        type="checkbox"
+                                        id="<?= e($attachmentInputId) ?>"
+                                        name="attachment_ids[]"
+                                        value="<?= e((string)$attachment['id']) ?>"
+                                        data-article-attachment-input
+                                        data-url="<?= e(url('file.php?id=' . (int)$attachment['id'])) ?>"
+                                        data-name="<?= e($attachment['original_name']) ?>"
+                                        data-mime="<?= e($attachment['mime_type']) ?>"
+                                        <?= in_array((int)$attachment['id'], $selectedAttachmentIds, true) ? 'checked' : '' ?>
+                                    >
+                                    <span><?= e($attachment['original_name'] . ' — ' . human_file_size((int)$attachment['size'])) ?></span>
+                                </label>
+                                <button
+                                    type="button"
+                                    class="button-secondary"
+                                    data-insert-article-attachment
+                                    data-attachment-input="<?= e($attachmentInputId) ?>"
+                                >
+                                    Insérer
+                                </button>
+                            </div>
                         <?php endforeach; ?>
-                    </select>
-                    <p class="muted">
-                        Les fichiers sélectionnés seront affichés avec l’article. Vous pouvez aussi insérer le fichier sélectionné dans le texte.
-                    </p>
-                    <div class="form-actions">
-                        <button type="button" class="button-secondary" data-insert-article-attachment>
-                            Insérer dans le contenu
-                        </button>
                     </div>
+                    <p class="muted">
+                        Les fichiers cochés seront affichés avec l’article. Décochez un fichier pour le retirer de l’article et de son contenu.
+                    </p>
                 <?php endif; ?>
 
                 <div class="grid grid-2">
                     <div>
                         <label for="visibility">Visibilité</label>
                         <select id="visibility" name="visibility">
+                            <option value="members" <?= $visibility === 'members' ? 'selected' : '' ?>>
+                                Membres uniquement
+                            </option>
                             <option value="public" <?= $visibility === 'public' ? 'selected' : '' ?>>
-                                Public — visible publiquement et ActivityPub
+                                Membres et mastodon
                             </option>
                             <option value="private" <?= $visibility === 'private' ? 'selected' : '' ?>>
                                 Privé
-                            </option>
-                            <option value="members" <?= $visibility === 'members' ? 'selected' : '' ?>>
-                                Membres uniquement
                             </option>
                             <option value="group" <?= $visibility === 'group' ? 'selected' : '' ?>>
                                 Groupe

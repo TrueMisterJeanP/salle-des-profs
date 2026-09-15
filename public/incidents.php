@@ -158,6 +158,7 @@ $incidents = db_fetch_all(
      JOIN users u ON u.id = i.created_by
      LEFT JOIN groups g ON g.id = i.group_id
      WHERE i.is_active = 1
+       AND " . protection_user_visibility_where($user, 'i') . "
      ORDER BY i.occurred_at DESC, i.created_at DESC"
 );
 $monthNames = [
@@ -199,7 +200,19 @@ if (!isset($incidentMonths[$currentIncidentMonth]) && $currentIncidentMonthTimes
 ksort($incidentMonths);
 ksort($incidentsByMonth);
 $defaultIncidentMonth = isset($incidentMonths[$currentIncidentMonth]) ? $currentIncidentMonth : ($incidentMonths ? (string)array_key_last($incidentMonths) : '');
-$selectedIncidentMonth = get_value('incident_month', $defaultIncidentMonth);
+$requestedIncidentId = (int)get_value('incident', '0');
+$requestedIncidentMonth = '';
+$requestedIncidentPage = 0;
+foreach ($incidentsByMonth as $monthKey => $monthIncidents) {
+    foreach ($monthIncidents as $index => $incidentItem) {
+        if ((int)$incidentItem['id'] === $requestedIncidentId) {
+            $requestedIncidentMonth = (string)$monthKey;
+            $requestedIncidentPage = $index + 1;
+            break 2;
+        }
+    }
+}
+$selectedIncidentMonth = $requestedIncidentMonth !== '' ? $requestedIncidentMonth : get_value('incident_month', $defaultIncidentMonth);
 if (!isset($incidentMonths[$selectedIncidentMonth])) {
     $selectedIncidentMonth = $defaultIncidentMonth;
 }
@@ -208,7 +221,7 @@ $selectedIncidentMonthIndex = array_search($selectedIncidentMonth, $incidentMont
 $previousIncidentMonth = $selectedIncidentMonthIndex !== false && $selectedIncidentMonthIndex > 0 ? $incidentMonthKeys[$selectedIncidentMonthIndex - 1] : null;
 $nextIncidentMonth = $selectedIncidentMonthIndex !== false && $selectedIncidentMonthIndex < count($incidentMonthKeys) - 1 ? $incidentMonthKeys[$selectedIncidentMonthIndex + 1] : null;
 $selectedMonthIncidents = $selectedIncidentMonth !== '' ? ($incidentsByMonth[$selectedIncidentMonth] ?? []) : [];
-$selectedFactPage = max(1, (int)get_value('fact', '1'));
+$selectedFactPage = $requestedIncidentPage > 0 ? $requestedIncidentPage : max(1, (int)get_value('fact', '1'));
 $selectedFactCount = count($selectedMonthIncidents);
 if ($selectedFactCount > 0 && $selectedFactPage > $selectedFactCount) {
     $selectedFactPage = $selectedFactCount;
@@ -226,6 +239,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Inventaire des incidents — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -30,6 +30,11 @@ function mastodon_publish_status(int $userId, string $status, ?string $visibilit
         throw new RuntimeException('Mastodon n’est pas configuré pour cet utilisateur.');
     }
 
+    $securityOptions = outbound_http_curl_security_options($instanceUrl);
+    if ($securityOptions === null) {
+        throw new RuntimeException('L’URL Mastodon doit désigner une instance publique accessible en HTTP ou HTTPS.');
+    }
+
     $visibility = $visibility ?: $defaultVisibility;
 
     if (!in_array($visibility, ['public', 'unlisted', 'private'], true)) {
@@ -57,24 +62,33 @@ function mastodon_publish_status(int $userId, string $status, ?string $visibilit
         throw new RuntimeException('Impossible d’initialiser cURL.');
     }
 
-    curl_setopt_array($ch, [
+    $responseBody = '';
+    curl_setopt_array($ch, $securityOptions + [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_RETURNTRANSFER => false,
         CURLOPT_HTTPHEADER => [
             'Authorization: Bearer ' . $accessToken,
             'Content-Type: application/x-www-form-urlencoded',
         ],
         CURLOPT_TIMEOUT => 20,
+        CURLOPT_MAXFILESIZE => 2 * 1024 * 1024,
+        CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$responseBody): int {
+            if (strlen($responseBody) + strlen($chunk) > 2 * 1024 * 1024) {
+                return 0;
+            }
+
+            $responseBody .= $chunk;
+
+            return strlen($chunk);
+        },
     ]);
 
-    $responseBody = curl_exec($ch);
+    $executed = curl_exec($ch);
     $error = curl_error($ch);
     $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-    curl_close($ch);
-
-    if ($responseBody === false) {
+    if ($executed === false) {
         throw new RuntimeException('Erreur cURL : ' . $error);
     }
 

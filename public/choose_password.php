@@ -15,6 +15,11 @@ $token = trim(is_post() ? post_value('token') : get_value('token'));
 $setupUser = user_password_setup_by_token($token);
 $errors = [];
 
+if (!headers_sent()) {
+    header('Referrer-Policy: no-referrer');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+}
+
 if (is_post()) {
     require_csrf();
 

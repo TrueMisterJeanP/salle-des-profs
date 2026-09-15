@@ -104,6 +104,20 @@ function protection_ensure_schema(): void
         db_query("ALTER TABLE protection_resources ADD COLUMN attachment_id INTEGER");
     }
 
+    if (db_fetch_one(db_is_mysql()
+        ? "SHOW TABLES LIKE 'protection_resources'"
+        : "SELECT name FROM sqlite_master WHERE type='table' AND name='protection_resources'"
+    ) && !db_column_exists('protection_resources', 'is_pinned')) {
+        db_query("ALTER TABLE protection_resources ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0");
+    }
+
+    if (db_fetch_one(db_is_mysql()
+        ? "SHOW TABLES LIKE 'protection_resources'"
+        : "SELECT name FROM sqlite_master WHERE type='table' AND name='protection_resources'"
+    ) && !db_column_exists('protection_resources', 'pinned_at')) {
+        db_query('ALTER TABLE protection_resources ADD COLUMN pinned_at ' . (db_is_mysql() ? 'VARCHAR(32)' : 'TEXT'));
+    }
+
     db_exec_schema(
         "CREATE TABLE IF NOT EXISTS protection_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,6 +175,8 @@ function protection_ensure_schema(): void
             contact_info TEXT,
             description TEXT,
             is_active INTEGER NOT NULL DEFAULT 1,
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            pinned_at TEXT,
             created_by INTEGER NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT,
@@ -231,6 +247,7 @@ function protection_ensure_schema(): void
     db_query("CREATE INDEX IF NOT EXISTS idx_protection_incidents_occurred_at ON protection_incidents(occurred_at)");
     db_query("CREATE INDEX IF NOT EXISTS idx_protection_incidents_status ON protection_incidents(status)");
     db_query("CREATE INDEX IF NOT EXISTS idx_protection_resources_type ON protection_resources(resource_type)");
+    db_query("CREATE INDEX IF NOT EXISTS idx_protection_resources_pinned ON protection_resources(is_pinned, pinned_at)");
     db_query("CREATE INDEX IF NOT EXISTS idx_protection_action_plans_status ON protection_action_plans(status)");
 }
 
@@ -244,21 +261,61 @@ function protection_user_can_manage(array $record, array $user): bool
     return ($user['role'] ?? '') === 'admin' || (int)($record['created_by'] ?? 0) === (int)($user['id'] ?? 0);
 }
 
+function protection_user_can_pin_resources(array $user): bool
+{
+    return in_array(($user['role'] ?? ''), ['admin', 'syndicate'], true);
+}
+
 function protection_visibility_where(string $alias = ''): string
 {
     $prefix = $alias !== '' ? $alias . '.' : '';
     return $prefix . "visibility IN ('public', 'members')";
 }
 
-function protection_fetch_stats(): array
+/**
+ * Construit la condition SQL de lecture des événements, incidents et actions.
+ *
+ * Les membres voient les contenus publics ou réservés aux membres, leurs propres
+ * contenus privés et les contenus des groupes auxquels ils appartiennent. Les
+ * administrateurs conservent une vue complète afin de pouvoir modérer le site.
+ */
+function protection_user_visibility_where(array $user, string $alias = ''): string
 {
+    if (($user['role'] ?? '') === 'admin') {
+        return '1 = 1';
+    }
+
+    $prefix = $alias !== '' ? $alias . '.' : '';
+    $userId = (int)($user['id'] ?? 0);
+
+    return "(
+        {$prefix}visibility IN ('public', 'members')
+        OR {$prefix}created_by = $userId
+        OR (
+            {$prefix}visibility = 'group'
+            AND {$prefix}group_id IS NOT NULL
+            AND EXISTS (
+                SELECT 1
+                FROM group_members protection_group_members
+                WHERE protection_group_members.group_id = {$prefix}group_id
+                  AND protection_group_members.user_id = $userId
+            )
+        )
+    )";
+}
+
+function protection_fetch_stats(?array $user = null): array
+{
+    $eventVisibility = $user !== null ? protection_user_visibility_where($user, 'event_stats') : '1 = 1';
+    $incidentVisibility = $user !== null ? protection_user_visibility_where($user, 'incident_stats') : '1 = 1';
+    $actionVisibility = $user !== null ? protection_user_visibility_where($user, 'action_stats') : '1 = 1';
+
     return [
-        'events' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_events WHERE is_active = 1")['total'] ?? 0),
-        'incidents' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_incidents WHERE is_active = 1")['total'] ?? 0),
-        'open_incidents' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_incidents WHERE is_active = 1 AND status IN ('open', 'reported')")['total'] ?? 0),
+        'events' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_events event_stats WHERE event_stats.is_active = 1 AND $eventVisibility")['total'] ?? 0),
+        'incidents' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_incidents incident_stats WHERE incident_stats.is_active = 1 AND $incidentVisibility")['total'] ?? 0),
+        'open_incidents' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_incidents incident_stats WHERE incident_stats.is_active = 1 AND incident_stats.status IN ('open', 'reported') AND $incidentVisibility")['total'] ?? 0),
         'resources' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_resources WHERE is_active = 1")['total'] ?? 0),
         'unions' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_union_boards WHERE is_active = 1")['total'] ?? 0),
-        'actions' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_action_plans WHERE is_active = 1 AND status NOT IN ('done', 'abandoned')")['total'] ?? 0),
+        'actions' => (int)(db_fetch_one("SELECT COUNT(*) AS total FROM protection_action_plans action_stats WHERE action_stats.is_active = 1 AND action_stats.status NOT IN ('done', 'abandoned') AND $actionVisibility")['total'] ?? 0),
     ];
 }
-    

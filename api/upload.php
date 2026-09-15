@@ -46,6 +46,7 @@ try {
         'mime_type' => $attachment['mime_type'],
         'size' => $attachment['size'],
         'path' => $attachment['path'],
+        'created_at' => $attachment['created_at'],
         'url' => url('file.php?id=' . (int)$attachment['id']),
     ]);
 } catch (Throwable $e) {

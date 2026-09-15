@@ -9,20 +9,7 @@ require_once __DIR__ . '/helpers.php';
  */
 function csrf_start_session(): void
 {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        ini_set('session.use_strict_mode', '1');
-        ini_set('session.use_only_cookies', '1');
-        session_name(SESSION_NAME);
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path' => '/',
-            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                || parse_url(BASE_URL, PHP_URL_SCHEME) === 'https',
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-        session_start();
-    }
+    app_start_session();
 }
 
 function csrf_prevent_form_cache(): void
@@ -84,10 +71,7 @@ function require_csrf(): void
     if (!csrf_verify()) {
         http_response_code(403);
 
-        $accept = (string)($_SERVER['HTTP_ACCEPT'] ?? '');
-        $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
-
-        if (str_contains($accept, 'application/json') || str_contains($uri, '/api/')) {
+        if (request_expects_json()) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'success' => false,

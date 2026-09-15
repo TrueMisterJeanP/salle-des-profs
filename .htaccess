@@ -1,4 +1,14 @@
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
 RewriteEngine On
 
+RewriteRule ^(?:database|uploads|includes|templates|tests|docs)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.git|\.agents|\.codex)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.env(?:\..*)?|import_enseignants\.csv)$ - [F,L,NC]
 RewriteRule ^\.well-known/webfinger$ .well-known/webfinger.php [L,QSA]
 RewriteRule ^$ https://salledesprofs.appbox.fr/public/public.php [R=302,L]

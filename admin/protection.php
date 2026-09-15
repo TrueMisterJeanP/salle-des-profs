@@ -245,6 +245,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Administration protection — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -259,9 +260,11 @@ $flashes = get_flashes();
     <section class="card">
         <h1>Administration protection</h1>
         <p class="muted">Lire, modifier, désactiver et supprimer les registres opérationnels du site.</p>
-        <nav class="form-actions" aria-label="Sections protection">
+        <nav class="form-actions admin-protection-nav" aria-label="Sections protection">
             <?php foreach ($configs as $key => $item): ?>
-                <a class="button-secondary" href="<?= e(admin_url('protection.php?type=' . $key)) ?>" <?= $key === $type ? 'aria-current="page"' : '' ?>><?= e($item['title']) ?></a>
+                <?php if ($key !== 'resources'): ?>
+                    <a class="button-secondary" href="<?= e(admin_url('protection.php?type=' . $key)) ?>" <?= $key === $type ? 'aria-current="page"' : '' ?>><?= e($item['title']) ?></a>
+                <?php endif; ?>
             <?php endforeach; ?>
             <a class="button-secondary" href="<?= e(admin_url('index.php')) ?>">Retour admin</a>
         </nav>

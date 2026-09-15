@@ -206,6 +206,7 @@ $events = db_fetch_all(
          )
      )
        AND e.is_active = 1
+       AND " . protection_user_visibility_where($user, 'e') . "
      ORDER BY e.starts_at ASC",
     ['start' => $start, 'end' => $end]
 );
@@ -292,6 +293,7 @@ $endTimeValue = is_post() ? post_value('ends_at_time') : substr($formEndValue, 1
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Calendrier d’établissement — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">

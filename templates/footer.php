@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/markdown.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $footerContent = footer_content();
 ?>
@@ -13,7 +14,9 @@ $footerContent = footer_content();
             <?= render_markdown($footerContent) ?>
             <p class="footer-contact-link">
                 <a href="<?= e(url('about.php')) ?>">À propos</a>
-                <a href="<?= e(url('messenger_login.php')) ?>">Accès direct à la messagerie</a>
+                <?php if (is_logged_in()): ?>
+                    <a href="<?= e(url('messenger_login.php')) ?>">Accès direct à la messagerie</a>
+                <?php endif; ?>
                 <a href="<?= e(url('contact.php')) ?>">Nous contacter</a>
             </p>
         </div>
@@ -69,6 +72,11 @@ $footerContent = footer_content();
 
     const initDismissibleFlashes = (root = document) => {
         root.querySelectorAll('.flash-success, .flash-info').forEach((flash) => {
+            if (flash.dataset.autoDismissScheduled !== 'true') {
+                flash.dataset.autoDismissScheduled = 'true';
+                window.setTimeout(() => flash.remove(), 10000);
+            }
+
             if (flash.querySelector('[data-dismiss-flash]')) {
                 return;
             }

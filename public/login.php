@@ -21,6 +21,11 @@ $action = is_post() ? post_value('action', 'login') : 'login';
 $setupToken = trim($action === 'setup_password' ? post_value('setup_token') : get_value('setup_token'));
 $setupUser = $setupToken !== '' ? user_password_setup_by_token($setupToken) : null;
 
+if ($setupToken !== '' && !headers_sent()) {
+    header('Referrer-Policy: no-referrer');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+}
+
 if (is_post()) {
     if (!csrf_verify()) {
         csrf_regenerate();
@@ -107,6 +112,9 @@ $flashes = get_flashes();
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">
 </head>
 <body class="auth-page">
+    <?php $headerBrandOnly = true; ?>
+    <?php require __DIR__ . '/../templates/header.php'; ?>
+
     <main class="auth-container education-login">
         <section class="card login-card">
             <div class="login-mark" aria-hidden="true">
@@ -127,7 +135,7 @@ $flashes = get_flashes();
                 <p class="public-eyebrow">Salle des profs</p>
                 <h1>Espace professionnel</h1>
                 <p class="muted">
-                    Accès réservé aux personnels enregistrés par l’administrateur de l’établissement.
+                    Accès réservé aux personnels enregistrés par l’administrateur.
                 </p>
             <?php endif; ?>
 
@@ -210,11 +218,14 @@ $flashes = get_flashes();
                     </div>
                 </form>
                 <p class="auth-return-link muted">
-                    Pour obtenir un compte, contactez l’administrateur du site ou votre référent d’établissement.
+                    Pour obtenir un compte, contactez l’administrateur du site.
                 </p>
             <?php endif; ?>
         </section>
     </main>
+
+    <?php require __DIR__ . '/../templates/footer.php'; ?>
+
     <script src="<?= e(url('assets/app.js') . '?v=' . filemtime(__DIR__ . '/assets/app.js')) ?>"></script>
     <script>
         if (typeof typesetMath === 'function') {

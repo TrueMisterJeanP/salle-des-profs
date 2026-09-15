@@ -1,6 +1,6 @@
 # Salle des profs
 
-Version actuelle : **1.0.0**
+Version actuelle : **1.0.1**
 
 Application web libre d’échange, de soutien et de coordination destinée aux
 enseignants, développée en PHP avec SQLite ou MariaDB.
@@ -10,12 +10,14 @@ enseignants, développée en PHP avec SQLite ou MariaDB.
 - Installation guidée via `install.php`.
 - Création du premier administrateur.
 - Connexion, déconnexion et inscription selon paramètre.
-- Administration des utilisateurs, groupes, posts, articles, commentaires, paramètres, migrations et publications Mastodon.
+- Administration des utilisateurs, groupes, annonces, articles, commentaires, ressources, paramètres, migrations et publications Mastodon.
 - Posts courts, articles Markdown, commentaires, messages privés, groupes, messages de groupe et pièces jointes.
 - Messagerie interne utilisable de manière autonome, avec conversations privées, groupes et pièces jointes.
 - Possibilité d’utiliser un disque USB externe pour augmenter la capacité de stockage du site et définir des quotas d’espace.
 - Fédération compatible ActivityPub et Mastodon : un enseignant peut rendre publique une annonce ou un article, visible par toutes et tous, et plusieurs sites Salle des profs peuvent afficher des informations publiques publiées par d’autres instances compatibles.
 - Publication manuelle vers Mastodon si un compte est configuré.
+- Suivi des événements, incidents et actions collectives, avec recherche transversale.
+- Répertoire de ressources avec documents joints et épinglage par les administrateurs ou syndicalistes.
 
 ## Captures d’écran
 
@@ -26,6 +28,8 @@ enseignants, développée en PHP avec SQLite ou MariaDB.
 ![Fédération](docs/screenshots/dashboard_federation.png)
 
 ![Établissement](docs/screenshots/etablissement.png)
+
+![Ressources](docs/screenshots/resources.png)
 
 ![Syndicat](docs/screenshots/syndicat.png)
 

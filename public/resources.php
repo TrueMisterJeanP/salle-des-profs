@@ -13,24 +13,11 @@ protection_ensure_schema();
 
 $user = current_user();
 $errors = [];
-$editId = (int)get_value('edit', '0');
-$editResource = null;
-$uploadSizeLimit = effective_upload_size_limit();
-
-if ($editId > 0) {
-    $editResource = db_fetch_one(
-        "SELECT * FROM protection_resources WHERE id = :id AND is_active = 1 LIMIT 1",
-        ['id' => $editId]
-    );
-    if ($editResource && !protection_user_can_manage($editResource, $user)) {
-        set_flash('error', 'Vous ne pouvez pas modifier cette ressource.');
-        redirect(url('resources.php'));
-    }
-}
+$canPinResources = protection_user_can_pin_resources($user);
 
 if (is_post()) {
     require_csrf();
-    $action = post_value('action', 'create');
+    $action = post_value('action');
     $id = (int)post_value('id', '0');
 
     if ($action === 'delete' && $id > 0) {
@@ -39,78 +26,43 @@ if (is_post()) {
             $errors[] = 'Ressource introuvable ou non modifiable.';
         } else {
             db_query(
-                "UPDATE protection_resources SET is_active = 0, updated_at = :updated_at WHERE id = :id",
+                "UPDATE protection_resources
+                 SET is_active = 0, is_pinned = 0, pinned_at = NULL, updated_at = :updated_at
+                 WHERE id = :id",
                 ['updated_at' => now(), 'id' => $id]
             );
             set_flash('success', 'Ressource supprimée.');
             redirect(url('resources.php'));
         }
-    }
+    } elseif (in_array($action, ['pin', 'unpin'], true) && $id > 0) {
+        $resource = db_fetch_one(
+            "SELECT id FROM protection_resources WHERE id = :id AND is_active = 1 LIMIT 1",
+            ['id' => $id]
+        );
 
-    $data = [
-        'title' => post_value('title'),
-        'resource_type' => post_value('resource_type', 'law'),
-        'organization' => post_value('organization'),
-        'url' => post_value('url'),
-        'contact_info' => post_value('contact_info'),
-        'description' => post_value('description'),
-    ];
-    if ($data['title'] === '') {
-        $errors[] = 'Le titre est obligatoire.';
-    }
-    if (!isset(PROTECTION_RESOURCE_TYPES[$data['resource_type']])) {
-        $errors[] = 'Type de ressource invalide.';
-    }
-    if ($data['url'] !== '' && filter_var($data['url'], FILTER_VALIDATE_URL) === false) {
-        $errors[] = 'URL invalide.';
-    }
-    $uploadedAttachment = null;
-    if (!$errors && !empty($_FILES['file']) && is_array($_FILES['file']) && (int)($_FILES['file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-        try {
-            $uploadedAttachment = save_uploaded_attachment($_FILES['file'], (int)$user['id']);
-        } catch (Throwable $e) {
-            $errors[] = $e->getMessage();
-        }
-    }
-    if (!$errors) {
-        if ($action === 'update' && $id > 0) {
-            $resource = db_fetch_one("SELECT * FROM protection_resources WHERE id = :id AND is_active = 1 LIMIT 1", ['id' => $id]);
-            if (!$resource || !protection_user_can_manage($resource, $user)) {
-                $errors[] = 'Ressource introuvable ou non modifiable.';
-            } else {
-                db_query(
-                    "UPDATE protection_resources
-                     SET title = :title, resource_type = :resource_type, organization = :organization,
-                         url = :url, attachment_id = :attachment_id, contact_info = :contact_info,
-                         description = :description, updated_at = :updated_at
-                     WHERE id = :id",
-                    $data + [
-                        'attachment_id' => $uploadedAttachment ? (int)$uploadedAttachment['id'] : ((int)($resource['attachment_id'] ?? 0) ?: null),
-                        'updated_at' => now(),
-                        'id' => $id,
-                    ]
-                );
-                set_flash('success', 'Ressource mise à jour.');
-                redirect(url('resources.php'));
-            }
+        if (!$canPinResources) {
+            $errors[] = 'Seuls les administrateurs et les syndicalistes peuvent épingler une ressource.';
+        } elseif (!$resource) {
+            $errors[] = 'Ressource introuvable.';
         } else {
-            db_insert(
-                "INSERT INTO protection_resources
-                 (title, resource_type, organization, url, attachment_id, contact_info, description, created_by, created_at)
-                 VALUES (:title, :resource_type, :organization, :url, :attachment_id, :contact_info, :description, :created_by, :created_at)",
-                $data + [
-                    'attachment_id' => $uploadedAttachment ? (int)$uploadedAttachment['id'] : null,
-                    'created_by' => (int)$user['id'],
-                    'created_at' => now(),
+            $isPinned = $action === 'pin';
+            $updatedAt = now();
+            db_query(
+                "UPDATE protection_resources
+                 SET is_pinned = :is_pinned,
+                     pinned_at = :pinned_at,
+                     updated_at = :updated_at
+                 WHERE id = :id",
+                [
+                    'is_pinned' => $isPinned ? 1 : 0,
+                    'pinned_at' => $isPinned ? $updatedAt : null,
+                    'updated_at' => $updatedAt,
+                    'id' => $id,
                 ]
             );
-            set_flash('success', 'Ressource ajoutée.');
-            redirect(url('resources.php'));
+            set_flash('success', $isPinned ? 'Ressource épinglée.' : 'Ressource désépinglée.');
+            redirect(url('resources.php?resource=' . $id . '#resource-directory'));
         }
-    }
-
-    if (!$errors) {
-        redirect(url('resources.php'));
     }
 }
 $type = get_value('type');
@@ -120,6 +72,9 @@ if ($type !== '' && isset(PROTECTION_RESOURCE_TYPES[$type])) {
     $where .= ' AND protection_resources.resource_type = :type';
     $params['type'] = $type;
 }
+$totalResourceCount = (int)(db_fetch_one(
+    "SELECT COUNT(*) AS total FROM protection_resources WHERE is_active = 1"
+)['total'] ?? 0);
 $resources = db_fetch_all(
     "SELECT protection_resources.*,
             attachments.original_name AS attachment_original_name,
@@ -134,18 +89,33 @@ $resources = db_fetch_all(
      ORDER BY protection_resources.resource_type ASC, protection_resources.title ASC",
     $params
 );
+$pinnedResources = db_fetch_all(
+    "SELECT id, title, resource_type, organization, pinned_at
+     FROM protection_resources
+     WHERE is_active = 1 AND is_pinned = 1
+     ORDER BY pinned_at DESC, title ASC"
+);
 $resourceCount = count($resources);
 $resourcePage = max(1, (int)get_value('resource_page', '1'));
+$requestedResourceId = (int)get_value('resource', '0');
+if ($requestedResourceId > 0) {
+    foreach ($resources as $index => $resourceItem) {
+        if ((int)$resourceItem['id'] === $requestedResourceId) {
+            $resourcePage = $index + 1;
+            break;
+        }
+    }
+}
 if ($resourceCount > 0 && $resourcePage > $resourceCount) {
     $resourcePage = $resourceCount;
 }
 $selectedResource = $resourceCount > 0 ? $resources[$resourcePage - 1] : null;
-$form = $editResource ?: [];
 $flashes = get_flashes();
 ?>
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Textes officiels et services — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -156,13 +126,60 @@ $flashes = get_flashes();
 <main class="container page">
     <?php foreach ($flashes as $flash): ?><div class="<?= e(flash_class($flash['type'])) ?>"><?= e($flash['message']) ?></div><?php endforeach; ?>
     <?php if ($errors): ?><div class="flash flash-error"><strong>Erreur :</strong><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-    <section class="card"><h1>Inventaire des textes et services</h1><p class="muted">Répertoriez les bases réglementaires, services, procédures, modèles et contacts mobilisables.</p></section>
-    <section class="card" id="resource-directory">
-        <div class="section-heading-row"><h2>Répertoire</h2><nav class="filter-tabs"><a href="<?= e(url('resources.php')) ?>">Tout</a><?php foreach (PROTECTION_RESOURCE_TYPES as $key => $label): ?><a href="<?= e(url('resources.php?type=' . urlencode($key))) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></div>
-        <?php if (!$resources): ?><p class="muted">Aucune ressource enregistrée.</p><?php else: ?>
-            <?php $resource = $selectedResource; ?>
-            <div class="resource-directory-detail">
-                <article class="record-card">
+    <section class="resource-hero">
+        <div>
+            <h1>Ressources</h1>
+            <p class="muted">Inventaire des textes, services, procédures, modèles et contacts mobilisables.</p>
+        </div>
+        <div class="resource-hero-actions">
+            <a class="button-primary" href="<?= e(url('resource_edit.php')) ?>">Ajouter une ressource</a>
+        </div>
+    </section>
+    <section class="grid grid-4 dashboard-grid resources-overview" aria-label="Ressources disponibles, ressources épinglées et répertoire">
+        <div class="resources-overview-sidebar">
+            <article class="card dashboard-card resource-available-card">
+                <h2>Ressources disponibles</h2>
+                <p class="stat"><?= e((string)$totalResourceCount) ?></p>
+                <p class="muted">ressource(s) active(s)</p>
+            </article>
+
+            <section class="card resource-pinned-card" aria-labelledby="pinned-resources-title">
+                <h2 id="pinned-resources-title">Ressources épinglées</h2>
+                <?php if (!$pinnedResources): ?>
+                    <p class="muted resource-pinned-empty">Aucune ressource épinglée.</p>
+                <?php else: ?>
+                    <ul class="resource-pinned-list">
+                        <?php foreach ($pinnedResources as $pinnedResource): ?>
+                            <li>
+                                <a class="resource-pinned-link" href="<?= e(url('resources.php?resource=' . (int)$pinnedResource['id'] . '#resource-directory')) ?>">
+                                    <?= e($pinnedResource['title']) ?>
+                                </a>
+                                <span class="resource-pinned-meta">
+                                    <?= e(protection_label(PROTECTION_RESOURCE_TYPES, $pinnedResource['resource_type'])) ?>
+                                    <?php if ($pinnedResource['organization']): ?>
+                                        · <?= e($pinnedResource['organization']) ?>
+                                    <?php endif; ?>
+                                </span>
+                                <?php if ($canPinResources): ?>
+                                    <form class="resource-unpin-form" method="post" action="">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="action" value="unpin">
+                                        <input type="hidden" name="id" value="<?= e((string)$pinnedResource['id']) ?>">
+                                        <button class="button-secondary resource-pin-button" type="submit">Désépingler</button>
+                                    </form>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </section>
+        </div>
+        <section class="card resource-directory-card" id="resource-directory">
+            <div class="section-heading-row"><h2>Répertoire</h2><nav class="filter-tabs"><a href="<?= e(url('resources.php')) ?>">Tout</a><?php foreach (PROTECTION_RESOURCE_TYPES as $key => $label): ?><a href="<?= e(url('resources.php?type=' . urlencode($key))) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></div>
+            <?php if (!$resources): ?><p class="muted">Aucune ressource enregistrée.</p><?php else: ?>
+                <?php $resource = $selectedResource; ?>
+                <div class="resource-directory-detail">
+                    <article class="record-card">
                     <dl class="event-field-grid resource-field-grid">
                         <div class="event-field event-field-title">
                             <dt>Titre</dt>
@@ -223,15 +240,27 @@ $flashes = get_flashes();
                         </div>
                     </dl>
 
-                    <?php if (protection_user_can_manage($resource, $user)): ?>
+                    <?php if (protection_user_can_manage($resource, $user) || $canPinResources): ?>
                         <div class="form-actions">
-                            <a class="button-primary" href="<?= e(url('resources.php?edit=' . (int)$resource['id'] . '#title')) ?>">Modifier</a>
-                            <form method="post" action="" onsubmit="return confirm('Supprimer cette ressource ?');">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="id" value="<?= e((string)$resource['id']) ?>">
-                                <button class="button-danger" type="submit">Supprimer</button>
-                            </form>
+                            <?php if (protection_user_can_manage($resource, $user)): ?>
+                                <a class="button-primary" href="<?= e(url('resource_edit.php?id=' . (int)$resource['id'])) ?>">Modifier</a>
+                                <form method="post" action="" onsubmit="return confirm('Supprimer cette ressource ?');">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?= e((string)$resource['id']) ?>">
+                                    <button class="button-danger" type="submit">Supprimer</button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if ($canPinResources): ?>
+                                <form method="post" action="">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="<?= !empty($resource['is_pinned']) ? 'unpin' : 'pin' ?>">
+                                    <input type="hidden" name="id" value="<?= e((string)$resource['id']) ?>">
+                                    <button class="button-secondary" type="submit">
+                                        <?= !empty($resource['is_pinned']) ? 'Désépingler' : 'Épingler' ?>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                     <?php if ($resourceCount > 1): ?>
@@ -245,29 +274,10 @@ $flashes = get_flashes();
                             <?php endfor; ?>
                         </nav>
                     <?php endif; ?>
-                </article>
-            </div>
-        <?php endif; ?>
-    </section>
-    <section class="card">
-        <h2><?= $editResource ? 'Modifier la ressource' : 'Ajouter une ressource' ?></h2>
-        <form method="post" action="" enctype="multipart/form-data">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="<?= $editResource ? 'update' : 'create' ?>">
-            <input type="hidden" name="id" value="<?= e((string)($form['id'] ?? 0)) ?>">
-            <input type="hidden" name="MAX_FILE_SIZE" value="<?= (int)$uploadSizeLimit ?>">
-            <label for="title">Titre</label><input id="title" name="title" required value="<?= e((string)($form['title'] ?? post_value('title'))) ?>">
-            <div class="form-grid resource-form-grid">
-                <div><label for="resource_type">Type</label><select id="resource_type" name="resource_type"><?php foreach (PROTECTION_RESOURCE_TYPES as $key => $label): ?><option value="<?= e($key) ?>" <?= (($form['resource_type'] ?? post_value('resource_type', 'law')) === $key) ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-                <div><label for="organization">Service / organisme</label><input id="organization" name="organization" value="<?= e((string)($form['organization'] ?? post_value('organization'))) ?>"></div>
-            </div>
-            <label for="url">Lien officiel</label><input id="url" name="url" type="url" value="<?= e((string)($form['url'] ?? post_value('url'))) ?>">
-            <label for="file">Document à inclure</label><input id="file" name="file" type="file">
-            <p class="meta">Taille maximale : <?= e(human_file_size($uploadSizeLimit)) ?>.</p>
-            <label for="contact_info">Coordonnées ou canal de saisine</label><textarea id="contact_info" name="contact_info"><?= e((string)($form['contact_info'] ?? post_value('contact_info'))) ?></textarea>
-            <label for="description">Usage concret</label><textarea id="description" name="description"><?= e((string)($form['description'] ?? post_value('description'))) ?></textarea>
-            <div class="form-actions"><button class="button-primary" type="submit"><?= $editResource ? 'Enregistrer' : 'Ajouter' ?></button><?php if ($editResource): ?><a class="button-secondary" href="<?= e(url('resources.php')) ?>">Annuler</a><?php endif; ?></div>
-        </form>
+                    </article>
+                </div>
+            <?php endif; ?>
+        </section>
     </section>
 </main>
 <?php require __DIR__ . '/../templates/footer.php'; ?>

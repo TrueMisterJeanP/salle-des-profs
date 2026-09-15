@@ -242,6 +242,7 @@ $icalFeedUrl = ical_enabled() ? ical_feed_url() : '';
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Mon profil — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">

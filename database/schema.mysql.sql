@@ -449,6 +449,8 @@ CREATE TABLE IF NOT EXISTS protection_resources (
     contact_info LONGTEXT,
     description LONGTEXT,
     is_active INTEGER NOT NULL DEFAULT 1,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    pinned_at VARCHAR(32),
     created_by INTEGER NOT NULL,
     created_at VARCHAR(32) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at VARCHAR(32),
@@ -550,6 +552,7 @@ CREATE INDEX IF NOT EXISTS idx_protection_events_starts_at ON protection_events(
 CREATE INDEX IF NOT EXISTS idx_protection_incidents_occurred_at ON protection_incidents(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_protection_incidents_status ON protection_incidents(status);
 CREATE INDEX IF NOT EXISTS idx_protection_resources_type ON protection_resources(resource_type);
+CREATE INDEX IF NOT EXISTS idx_protection_resources_pinned ON protection_resources(is_pinned, pinned_at);
 CREATE INDEX IF NOT EXISTS idx_protection_action_plans_status ON protection_action_plans(status);
 
 INSERT IGNORE INTO settings (setting_key, setting_value) VALUES

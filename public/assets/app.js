@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     [
         initDismissibleFlashes,
         initMessengerDrawer,
+        initMessengerReturnLink,
         initPrivateChat,
         initGroupChat,
         initMessengerWebNotifications,
@@ -20,8 +21,69 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function initMessengerReturnLink() {
+    const returnLink = document.querySelector('[data-messenger-return]');
+
+    if (!returnLink) {
+        return;
+    }
+
+    const storageKey = 'messengerReturnUrl';
+    const currentUrl = new URL(window.location.href);
+    let returnUrl = '';
+
+    const isValidReturnUrl = (candidate) => {
+        try {
+            const parsed = new URL(candidate, currentUrl);
+
+            return parsed.origin === currentUrl.origin
+                && !parsed.pathname.endsWith('/messenger.php')
+                && !parsed.pathname.endsWith('/messenger_login.php');
+        } catch (error) {
+            return false;
+        }
+    };
+
+    if (document.referrer && isValidReturnUrl(document.referrer)) {
+        returnUrl = new URL(document.referrer, currentUrl).href;
+
+        try {
+            sessionStorage.setItem(storageKey, returnUrl);
+        } catch (error) {
+            // Le lien de secours défini côté serveur reste disponible.
+        }
+    } else {
+        try {
+            const storedUrl = sessionStorage.getItem(storageKey) || '';
+
+            if (isValidReturnUrl(storedUrl)) {
+                returnUrl = new URL(storedUrl, currentUrl).href;
+            }
+        } catch (error) {
+            // Le lien de secours défini côté serveur reste disponible.
+        }
+    }
+
+    if (returnUrl) {
+        returnLink.href = returnUrl;
+    }
+
+    returnLink.addEventListener('click', () => {
+        try {
+            sessionStorage.removeItem(storageKey);
+        } catch (error) {
+            // Aucun traitement nécessaire si le stockage est indisponible.
+        }
+    });
+}
+
 function initDismissibleFlashes() {
     document.querySelectorAll('.flash-success, .flash-info').forEach((flash) => {
+        if (flash.dataset.autoDismissScheduled !== 'true') {
+            flash.dataset.autoDismissScheduled = 'true';
+            window.setTimeout(() => flash.remove(), 10000);
+        }
+
         if (flash.querySelector('[data-dismiss-flash]')) {
             flash.classList.add('flash-is-dismissible');
             return;
@@ -370,6 +432,24 @@ function initPrivateChat() {
     let isSending = false;
     let lastMessagesSignature = '';
 
+    async function markMessagesRead() {
+        const formData = new FormData();
+        formData.append('user_id', peerId);
+        appendCsrf(formData);
+
+        try {
+            await fetch('../api/mark_messages_read.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+        } catch (error) {
+            console.error('Impossible de marquer les messages comme lus.', error);
+        }
+    }
+
     async function fetchMessages() {
         try {
             const response = await fetch(`../api/fetch_messages.php?user_id=${encodeURIComponent(peerId)}`, {
@@ -385,6 +465,14 @@ function initPrivateChat() {
                 return;
             }
 
+            const hasUnreadIncomingMessage = (data.messages || []).some((message) => (
+                String(message.receiver_id) === String(currentUserId)
+                && Number(message.is_read || 0) === 0
+            ));
+
+            if (hasUnreadIncomingMessage) {
+                await markMessagesRead();
+            }
             renderMessages(data.messages || [], currentUserId);
         } catch (error) {
             console.error('Erreur réseau pendant le chargement des messages.', error);
@@ -1229,11 +1317,87 @@ function initUploadForm() {
                 </div>
             `;
 
+            addUploadedAttachmentToList(data);
             form.reset();
         } catch (error) {
             result.innerHTML = `<div class="flash flash-error">Erreur réseau pendant l’envoi : ${escapeHtml(error.message || 'requête impossible')}.</div>`;
         }
     });
+}
+
+function addUploadedAttachmentToList(attachment) {
+    const list = document.querySelector('[data-attachment-list]');
+    const table = list ? list.querySelector('[data-attachment-table]') : null;
+    const body = list ? list.querySelector('[data-attachment-list-body]') : null;
+
+    if (!list || !table || !body) {
+        return;
+    }
+
+    const currentPage = Number(list.dataset.currentPage || 1);
+
+    if (currentPage > 1) {
+        const firstPageUrl = new URL('attachments.php', window.location.href);
+        window.location.assign(firstPageUrl.href);
+        return;
+    }
+
+    const attachmentId = Number(attachment.attachment_id || 0);
+    const originalName = String(attachment.original_name || 'Fichier');
+    const mimeType = String(attachment.mime_type || 'application/octet-stream');
+    const fileUrl = String(attachment.url || `file.php?id=${encodeURIComponent(attachmentId)}`);
+    const filePath = `file.php?id=${attachmentId}`;
+    const isImagePreview = mimeType.startsWith('image/');
+    const extensionParts = originalName.split('.');
+    const extension = extensionParts.length > 1 ? extensionParts.pop().toUpperCase() : 'FILE';
+    const markdownLabel = originalName.replace(/[\[\]\r\n]/g, ' ').trim();
+    const markdownLink = `${isImagePreview ? '!' : ''}[${markdownLabel}](${filePath})`;
+    const preview = isImagePreview
+        ? `<img src="${escapeHtml(fileUrl)}" alt="">`
+        : `<span>${escapeHtml(extension || 'FILE')}</span>`;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>
+            <div class="attachment-list-file">
+                <div class="attachment-list-file-copy"><strong>${escapeHtml(originalName)}</strong></div>
+                <a class="attachment-list-preview" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener" aria-label="Ouvrir ${escapeHtml(originalName)}">
+                    ${preview}
+                </a>
+            </div>
+        </td>
+        <td>${escapeHtml(mimeType)}</td>
+        <td>${escapeHtml(humanFileSize(Number(attachment.size || 0)))}</td>
+        <td>${escapeHtml(attachment.created_at || '')}</td>
+        <td>
+            <a class="button-secondary" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener">Ouvrir</a>
+            <label class="attachment-link-label" for="attachment_markdown_${attachmentId}">Lien Markdown</label>
+            <input class="attachment-link-input" type="text" id="attachment_markdown_${attachmentId}" value="${escapeHtml(markdownLink)}" readonly>
+        </td>
+        <td>
+            <form method="post" action="attachments.php" class="inline-form" onsubmit="return confirm('Supprimer ce fichier ? Cette action est irréversible.');">
+                <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken())}">
+                <input type="hidden" name="action" value="delete_attachment">
+                <input type="hidden" name="attachment_id" value="${attachmentId}">
+                <button type="submit" class="button-danger">Supprimer</button>
+            </form>
+        </td>
+    `;
+
+    body.prepend(row);
+    table.hidden = false;
+
+    const emptyState = list.querySelector('[data-attachment-empty]');
+    if (emptyState) {
+        emptyState.hidden = true;
+    }
+
+    const storageUsed = document.querySelector('[data-storage-used]');
+    if (storageUsed) {
+        const usedBytes = Number(storageUsed.dataset.storageBytes || 0) + Number(attachment.size || 0);
+        storageUsed.dataset.storageBytes = String(usedBytes);
+        storageUsed.textContent = humanFileSize(usedBytes);
+    }
 }
 
 function initMarkdownToolbar() {
@@ -1466,6 +1630,8 @@ document.addEventListener('click', (event) => {
         ? document.getElementById(targetId)
         : (form || document).querySelector('textarea.article-editor[name="content"]');
     const attachmentScope = form || document;
+    const attachmentInputId = button.dataset.attachmentInput || '';
+    const attachmentInput = attachmentInputId ? document.getElementById(attachmentInputId) : null;
     const selectId = button.dataset.attachmentSelect || '';
     let select = null;
 
@@ -1482,11 +1648,11 @@ document.addEventListener('click', (event) => {
         select = attachmentScope.querySelector('[data-markdown-attachment-select], #article-attachments');
     }
 
-    if (!textarea || !select) {
+    if (!textarea || (!attachmentInput && !select)) {
         return;
     }
 
-    const option = select.selectedOptions[0];
+    const option = attachmentInput || select.selectedOptions[0];
 
     if (!option) {
         alert('Sélectionnez un fichier à insérer.');
@@ -1507,10 +1673,56 @@ document.addEventListener('click', (event) => {
         ? `![${safeFileName}](${fileUrl})`
         : `[${safeFileName}](${fileUrl})`;
 
+    if (attachmentInput) {
+        attachmentInput.checked = true;
+    }
+
     textarea.focus();
     replaceMarkdownPlaceholderLinkSelection(textarea);
     replaceTextareaSelection(textarea, markdown);
 });
+
+document.addEventListener('change', (event) => {
+    const input = closestElement(event.target, '[data-article-attachment-input]');
+
+    if (!input || input.checked) {
+        return;
+    }
+
+    const form = input.closest('form');
+    const textarea = form ? form.querySelector('textarea.article-editor[name="content"]') : null;
+
+    if (!textarea) {
+        return;
+    }
+
+    const updatedContent = removeAttachmentMarkdownFromText(
+        textarea.value,
+        input.value,
+        input.dataset.url || ''
+    );
+
+    if (updatedContent !== textarea.value) {
+        textarea.value = updatedContent;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+});
+
+function removeAttachmentMarkdownFromText(content, attachmentId, expectedUrl) {
+    return String(content).replace(/!?\[[^\]\r\n]*\]\(([^)\r\n]+)\)/g, (markdown, target) => {
+        try {
+            const targetUrl = new URL(String(target).trim(), window.location.href);
+            const referenceUrl = new URL(expectedUrl, window.location.href);
+            const targetsFile = targetUrl.pathname.endsWith('/file.php')
+                && targetUrl.searchParams.get('id') === String(attachmentId);
+            const isExactReference = targetUrl.href === referenceUrl.href;
+
+            return targetsFile || isExactReference ? '' : markdown;
+        } catch (error) {
+            return markdown;
+        }
+    });
+}
 
 function replaceMarkdownPlaceholderLinkSelection(textarea) {
     const start = textarea.selectionStart;

@@ -136,6 +136,7 @@ $actions = db_fetch_all(
      JOIN users u ON u.id = a.created_by
      LEFT JOIN groups g ON g.id = a.group_id
      WHERE a.is_active = 1
+       AND " . protection_user_visibility_where($user, 'a') . "
      ORDER BY CASE a.status WHEN 'active' THEN 0 WHEN 'validated' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END,
               a.planned_at IS NULL ASC, a.planned_at ASC, a.created_at DESC"
 );
@@ -178,7 +179,19 @@ if (!isset($actionMonths[$currentActionMonth]) && $currentActionMonthTimestamp !
 ksort($actionMonths);
 ksort($actionsByMonth);
 $defaultActionMonth = isset($actionMonths[$currentActionMonth]) ? $currentActionMonth : ($actionMonths ? (string)array_key_last($actionMonths) : '');
-$selectedActionMonth = get_value('action_month', $defaultActionMonth);
+$requestedActionId = (int)get_value('action', '0');
+$requestedActionMonth = '';
+$requestedActionPage = 0;
+foreach ($actionsByMonth as $monthKey => $monthActions) {
+    foreach ($monthActions as $index => $actionItem) {
+        if ((int)$actionItem['id'] === $requestedActionId) {
+            $requestedActionMonth = (string)$monthKey;
+            $requestedActionPage = $index + 1;
+            break 2;
+        }
+    }
+}
+$selectedActionMonth = $requestedActionMonth !== '' ? $requestedActionMonth : get_value('action_month', $defaultActionMonth);
 if (!isset($actionMonths[$selectedActionMonth])) {
     $selectedActionMonth = $defaultActionMonth;
 }
@@ -187,7 +200,7 @@ $selectedActionMonthIndex = array_search($selectedActionMonth, $actionMonthKeys,
 $previousActionMonth = $selectedActionMonthIndex !== false && $selectedActionMonthIndex > 0 ? $actionMonthKeys[$selectedActionMonthIndex - 1] : null;
 $nextActionMonth = $selectedActionMonthIndex !== false && $selectedActionMonthIndex < count($actionMonthKeys) - 1 ? $actionMonthKeys[$selectedActionMonthIndex + 1] : null;
 $selectedMonthActions = $selectedActionMonth !== '' ? ($actionsByMonth[$selectedActionMonth] ?? []) : [];
-$selectedActionPage = max(1, (int)get_value('action_page', '1'));
+$selectedActionPage = $requestedActionPage > 0 ? $requestedActionPage : max(1, (int)get_value('action_page', '1'));
 $selectedActionCount = count($selectedMonthActions);
 if ($selectedActionCount > 0 && $selectedActionPage > $selectedActionCount) {
     $selectedActionPage = $selectedActionCount;
@@ -202,6 +215,7 @@ $flashes = get_flashes();
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Actions collectives — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -398,8 +412,23 @@ $flashes = get_flashes();
                     <select id="group_id" name="group_id"><option value="">Choisir un groupe</option><?php foreach ($groupOptions as $group): ?><option value="<?= e((string)$group['id']) ?>" <?= (int)($form['group_id'] ?? post_value('group_id', '0')) === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?></select>
                 </div>
             </div>
-            <div class="form-actions"><button class="button-primary" type="submit"><?= $editAction ? 'Enregistrer' : 'Ajouter l’action' ?></button><?php if ($editAction): ?><a class="button-secondary" href="<?= e(url('actions.php')) ?>">Annuler</a><?php endif; ?></div>
+            <div class="form-actions">
+                <button class="button-primary" type="submit"><?= $editAction ? 'Enregistrer' : 'Ajouter l’action' ?></button>
+                <?php if ($editAction): ?>
+                    <a class="button-secondary" href="<?= e(url('actions.php')) ?>">Annuler</a>
+                    <?php if (protection_user_can_manage($editAction, $user)): ?>
+                        <button class="button-danger" type="submit" form="delete-action-form">Supprimer l’action</button>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </form>
+        <?php if ($editAction && protection_user_can_manage($editAction, $user)): ?>
+            <form id="delete-action-form" method="post" action="<?= e(url('actions.php')) ?>" onsubmit="return confirm('Supprimer cette action ?');">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="<?= e((string)$editAction['id']) ?>">
+            </form>
+        <?php endif; ?>
     </section>
 </main>
 <?php require __DIR__ . '/../templates/footer.php'; ?>

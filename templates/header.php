@@ -97,9 +97,10 @@ if (!function_exists('site_breadcrumb_items')) {
                 'database.php' => 'Base de données',
                 'groups.php' => 'Groupes',
                 'mail.php' => 'Courriels',
-                'mastodon_publications.php' => 'Publications Mastodon',
+                'mastodon_publications.php' => 'Historique Mastodon',
                 'migrations.php' => 'Migrations',
                 'posts.php' => 'Publications',
+                'ressources.php' => 'Ressources',
                 'settings.php' => 'Configuration',
                 'users.php' => 'Utilisateurs',
             ];
@@ -141,7 +142,8 @@ if (!function_exists('site_breadcrumb_items')) {
             'notifications.php' => ['Notifications'],
             'profile.php' => ['Compte', 'Profil'],
             'protection.php' => ['Établissement'],
-            'resources.php' => ['Établissement', 'Textes et services'],
+            'resource_edit.php' => ['Ressources', (string)($context['page_title'] ?? 'Ajouter une ressource')],
+            'resources.php' => ['Ressources'],
             'search.php' => ['Recherche'],
             'syndicates.php' => ['Syndicats'],
         ];
@@ -151,6 +153,7 @@ if (!function_exists('site_breadcrumb_items')) {
             'Compte' => url('profile.php'),
             'Messagerie' => url('chat.php'),
             'Établissement' => url('protection.php'),
+            'Ressources' => url('resources.php'),
         ];
 
         if ($basename === 'article.php') {
@@ -200,6 +203,10 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
                 </span>
             <?php elseif ($siteIcon !== ''): ?>
                 <span class="brand-icon" aria-hidden="true"><?= e($siteIcon) ?></span>
+            <?php else: ?>
+                <span class="brand-default-icon" aria-hidden="true">
+                    <img src="<?= e(url('assets/default-site-icon.png') . '?v=' . filemtime(__DIR__ . '/../public/assets/default-site-icon.png')) ?>" alt="">
+                </span>
             <?php endif; ?>
             <span class="brand-name"><?= e($siteName) ?></span>
         </a>
@@ -211,6 +218,20 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
             </button>
 
             <nav class="site-menu-bar" id="site-private-menu" aria-label="Navigation principale">
+
+                <form class="site-menu-search" method="get" action="<?= e(url('search.php')) ?>" role="search">
+                    <label class="sr-only" for="site-menu-search-q">Recherche</label>
+                    <input
+                        type="search"
+                        id="site-menu-search-q"
+                        name="q"
+                        value="<?= e($headerSearchQuery) ?>"
+                        placeholder="Recherche"
+                        aria-label="Recherche"
+                    >
+                    <button type="submit">Rechercher</button>
+                </form>
+
                 <?php if (($user['role'] ?? '') === 'admin'): ?>
                 <details class="site-menu-group site-menu-group-admin">
                     <summary class="site-menu-tab">Réglages</summary>
@@ -232,24 +253,11 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
                         <a href="<?= e(admin_url('protection.php?type=events')) ?>" <?= $currentProtectionType === 'events' ? 'aria-current="page"' : '' ?>>Calendrier</a>
                         <a href="<?= e(admin_url('protection.php?type=incidents')) ?>" <?= $currentProtectionType === 'incidents' ? 'aria-current="page"' : '' ?>>Incidents</a>
                         <a href="<?= e(admin_url('protection.php?type=actions')) ?>" <?= $currentProtectionType === 'actions' ? 'aria-current="page"' : '' ?>>Actions gérées</a>
-                        <a href="<?= e(admin_url('protection.php?type=resources')) ?>" <?= $currentProtectionType === 'resources' ? 'aria-current="page"' : '' ?>>Textes et services</a>
+                        <a href="<?= e(admin_url('ressources.php')) ?>" <?= nav_is_current($currentScript, 'admin/ressources.php') ? 'aria-current="page"' : '' ?>>Ressources</a>
                         <a href="<?= e(admin_url('protection.php?type=syndicates')) ?>" <?= $currentProtectionType === 'syndicates' ? 'aria-current="page"' : '' ?>>Syndicats</a>
                     </div>
                 </details>
                 <?php endif; ?>
-
-                <form class="site-menu-search" method="get" action="<?= e(url('search.php')) ?>" role="search">
-                    <label class="sr-only" for="site-menu-search-q">Recherche</label>
-                    <input
-                        type="search"
-                        id="site-menu-search-q"
-                        name="q"
-                        value="<?= e($headerSearchQuery) ?>"
-                        placeholder="Recherche"
-                        aria-label="Recherche"
-                    >
-                    <button type="submit">Rechercher</button>
-                </form>
                 
                 <details class="site-menu-group">
                     <summary class="site-menu-tab">Navigation</summary>
@@ -257,6 +265,7 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
                         <a href="<?= e(url('dashboard.php')) ?>" <?= nav_is_current($currentScript, 'dashboard.php') ? 'aria-current="page"' : '' ?>>Accueil</a>
                         <a href="<?= e(url('protection.php')) ?>" <?= nav_is_current($currentScript, 'protection.php') ? 'aria-current="page"' : '' ?>>Établissement</a>
                         <a href="<?= e(url('syndicates.php')) ?>" <?= nav_is_current($currentScript, 'syndicates.php') ? 'aria-current="page"' : '' ?>>Syndicats</a>
+                        <a href="<?= e(url('resources.php')) ?>" <?= nav_is_current($currentScript, 'resources.php') ? 'aria-current="page"' : '' ?>>Ressources</a>
                         <a href="<?= e(url('feed.php')) ?>" <?= nav_is_current($currentScript, 'feed.php') ? 'aria-current="page"' : '' ?>>Mes annonces</a>
                         <a href="<?= e(url('articles.php')) ?>" <?= nav_is_current($currentScript, 'articles.php') ? 'aria-current="page"' : '' ?>>Mes articles</a>
                         <a href="<?= e(url('chat.php')) ?>" <?= nav_is_current($currentScript, 'chat.php') ? 'aria-current="page"' : '' ?>>Messagerie</a>
@@ -289,7 +298,7 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
                 </form>
 
             </nav>
-        <?php else: ?>
+        <?php elseif (empty($headerBrandOnly)): ?>
             <details class="site-menu">
                 <summary class="site-menu-toggle">
                     <span class="site-menu-icon" aria-hidden="true"></span>
@@ -344,9 +353,11 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
             content: <?= json_encode($currentUserAvatarInitial, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             align-items: center;
             justify-content: center;
-            background: #fbf3e6;
-            color: #9a5a1f;
-            border-color: #ffffff;
+            background: #ffffff;
+            color: #172b4d;
+            border-color: #dbe5f1;
+            opacity: 1;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
             font-size: 2.4rem;
             font-weight: 850;
         }

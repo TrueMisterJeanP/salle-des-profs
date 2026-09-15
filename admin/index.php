@@ -73,6 +73,7 @@ try {
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Administration — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -108,7 +109,8 @@ try {
                 <a class="button-secondary" href="<?= e(admin_url('articles.php')) ?>">Articles</a>
                 <a class="button-secondary" href="<?= e(admin_url('comments.php')) ?>">Commentaires des articles</a>
                 <a class="button-secondary" href="<?= e(admin_url('post_comments.php')) ?>">Commentaires des annonces</a>
-                <a class="button-secondary" href="<?= e(admin_url('mastodon_publications.php')) ?>">Publications Mastodon</a>
+                <a class="button-secondary" href="<?= e(admin_url('mastodon_publications.php')) ?>">Historique Mastodon</a>
+                <a class="button-secondary" href="<?= e(admin_url('ressources.php')) ?>">Ressources</a>
                 <a class="button-secondary" href="<?= e(admin_url('protection.php')) ?>">Protection</a>
             </div>
         </section>
@@ -184,7 +186,7 @@ try {
         </section>
 
         <section class="grid grid-2 admin-latest-grid">
-            <article class="card">
+            <article class="card admin-recent-posts">
                 <h2>Publications récentes</h2>
 
                 <?php if (!$recentPosts): ?>

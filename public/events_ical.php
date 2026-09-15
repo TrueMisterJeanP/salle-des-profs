@@ -100,6 +100,7 @@ try {
         "SELECT *
          FROM protection_events
          WHERE is_active = 1
+           AND " . protection_visibility_where() . "
          ORDER BY starts_at ASC, created_at ASC"
     );
 } catch (Throwable) {

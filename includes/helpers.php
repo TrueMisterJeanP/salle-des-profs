@@ -25,6 +25,175 @@ function redirect(string $url): never
 }
 
 /**
+ * Initialise la session avec les mêmes protections, quel que soit le premier
+ * composant qui en a besoin (authentification, CSRF ou message flash).
+ */
+function app_start_session(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    session_name(SESSION_NAME);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || parse_url(BASE_URL, PHP_URL_SCHEME) === 'https',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+}
+
+/**
+ * Indique si une adresse IP peut être jointe depuis une requête HTTP sortante.
+ * Les réseaux locaux, de bouclage, réservés et link-local sont refusés afin
+ * qu'une URL fournie par un utilisateur ne puisse pas atteindre le serveur.
+ */
+function outbound_http_ip_is_public(string $ipAddress): bool
+{
+    return filter_var(
+        $ipAddress,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    ) !== false;
+}
+
+function http_url_has_allowed_scheme(string $url): bool
+{
+    if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+        return false;
+    }
+
+    $parts = parse_url($url);
+
+    return is_array($parts)
+        && in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true)
+        && !empty($parts['host'])
+        && !isset($parts['user'])
+        && !isset($parts['pass']);
+}
+
+/**
+ * Valide une URL HTTP(S) et toutes les adresses auxquelles son hôte se résout.
+ */
+function outbound_http_url_public_addresses(string $url): array
+{
+    if (!http_url_has_allowed_scheme($url)) {
+        return [];
+    }
+
+    $parts = parse_url($url);
+    if (!is_array($parts)) {
+        return [];
+    }
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $host = strtolower(rtrim((string)($parts['host'] ?? ''), '.'));
+
+    if (!in_array($scheme, ['http', 'https'], true)
+        || $host === ''
+        || isset($parts['user'])
+        || isset($parts['pass'])
+    ) {
+        return [];
+    }
+
+    if ($host === 'localhost'
+        || str_ends_with($host, '.localhost')
+        || str_ends_with($host, '.local')
+        || str_ends_with($host, '.internal')
+    ) {
+        return [];
+    }
+
+    $literalAddress = trim($host, '[]');
+    if (filter_var($literalAddress, FILTER_VALIDATE_IP) !== false) {
+        return outbound_http_ip_is_public($literalAddress) ? [$literalAddress] : [];
+    }
+
+    $addresses = [];
+    if (function_exists('dns_get_record')) {
+        $recordType = DNS_A;
+        if (defined('DNS_AAAA')) {
+            $recordType |= DNS_AAAA;
+        }
+
+        $records = @dns_get_record($host, $recordType);
+        if (is_array($records)) {
+            foreach ($records as $record) {
+                $address = (string)($record['ip'] ?? $record['ipv6'] ?? '');
+                if ($address !== '') {
+                    $addresses[] = $address;
+                }
+            }
+        }
+    }
+
+    if (!$addresses && function_exists('gethostbynamel')) {
+        $resolved = @gethostbynamel($host);
+        if (is_array($resolved)) {
+            $addresses = $resolved;
+        }
+    }
+
+    if (!$addresses) {
+        return [];
+    }
+
+    foreach (array_unique($addresses) as $address) {
+        if (!outbound_http_ip_is_public((string)$address)) {
+            return [];
+        }
+    }
+
+    return array_values(array_unique(array_map('strval', $addresses)));
+}
+
+function outbound_http_url_is_safe(string $url): bool
+{
+    return outbound_http_url_public_addresses($url) !== [];
+}
+
+/**
+ * Retourne les options cURL qui figent la résolution DNS déjà contrôlée.
+ * Cela empêche une seconde résolution vers une adresse locale entre le
+ * contrôle de l'URL et la connexion effective (DNS rebinding).
+ */
+function outbound_http_curl_security_options(string $url): ?array
+{
+    $addresses = outbound_http_url_public_addresses($url);
+    $parts = parse_url($url);
+
+    if (!$addresses || !is_array($parts)) {
+        return null;
+    }
+
+    $host = (string)($parts['host'] ?? '');
+    $literalAddress = trim($host, '[]');
+    if (filter_var($literalAddress, FILTER_VALIDATE_IP) !== false) {
+        return [];
+    }
+
+    if (!defined('CURLOPT_RESOLVE')) {
+        return null;
+    }
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $port = isset($parts['port']) ? (int)$parts['port'] : ($scheme === 'https' ? 443 : 80);
+    $address = $addresses[0];
+
+    if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+        $address = '[' . $address . ']';
+    }
+
+    return [CURLOPT_RESOLVE => [$host . ':' . $port . ':' . $address]];
+}
+
+/**
  * Génère une URL complète à partir d'un chemin relatif à public/.
  */
 function url(string $path = ''): string
@@ -151,10 +320,7 @@ function flash_class(string $type): string
  */
 function set_flash(string $type, string $message): void
 {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_name(SESSION_NAME);
-        session_start();
-    }
+    app_start_session();
 
     $_SESSION['flash'][] = [
         'type' => $type,
@@ -167,10 +333,7 @@ function set_flash(string $type, string $message): void
  */
 function get_flashes(): array
 {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_name(SESSION_NAME);
-        session_start();
-    }
+    app_start_session();
 
     $flashes = $_SESSION['flash'] ?? [];
     unset($_SESSION['flash']);
@@ -184,6 +347,15 @@ function get_flashes(): array
 function is_post(): bool
 {
     return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+}
+
+function request_expects_json(): bool
+{
+    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+    $uri = str_replace('\\', '/', (string)($_SERVER['REQUEST_URI'] ?? ''));
+
+    return str_contains($accept, 'application/json')
+        || str_contains($uri, '/api/');
 }
 
 /**
@@ -509,20 +681,37 @@ function activity_log_disable_current_request(): void
 
 function activity_log_ip_address(): string
 {
+    $remoteAddress = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if (filter_var($remoteAddress, FILTER_VALIDATE_IP) === false) {
+        return '';
+    }
+
+    $configuredProxies = array_filter(array_map(
+        'trim',
+        explode(',', (string)(getenv('TRUSTED_PROXY_IPS') ?: ''))
+    ));
+    $trustedProxies = array_values(array_unique(array_merge(['127.0.0.1', '::1'], $configuredProxies)));
+
+    if (!in_array($remoteAddress, $trustedProxies, true)) {
+        return $remoteAddress;
+    }
+
     $forwardedFor = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
-
     if ($forwardedFor !== '') {
-        $parts = array_map('trim', explode(',', $forwardedFor));
-        $candidate = $parts[0] ?? '';
+        $parts = array_reverse(array_map('trim', explode(',', $forwardedFor)));
 
-        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
-            return $candidate;
+        foreach ($parts as $candidate) {
+            if (filter_var($candidate, FILTER_VALIDATE_IP) === false) {
+                continue;
+            }
+
+            if (!in_array($candidate, $trustedProxies, true)) {
+                return $candidate;
+            }
         }
     }
 
-    $remoteAddress = (string)($_SERVER['REMOTE_ADDR'] ?? '');
-
-    return filter_var($remoteAddress, FILTER_VALIDATE_IP) ? $remoteAddress : '';
+    return $remoteAddress;
 }
 
 function activity_log_ensure_table(): void
@@ -561,7 +750,66 @@ function activity_log_ensure_table(): void
          ON visitor_activity(user_id)"
     );
 
+    activity_log_redact_stored_sensitive_values();
+
     $done = true;
+}
+
+function activity_log_redact_stored_sensitive_values(): void
+{
+    try {
+        $completed = db_fetch_one(
+            "SELECT setting_value
+             FROM settings
+             WHERE setting_key = 'security_activity_redaction_v1'
+             LIMIT 1"
+        );
+        if (($completed['setting_value'] ?? '') === '1') {
+            return;
+        }
+
+        $lastId = 0;
+        do {
+            $rows = db_fetch_all(
+                "SELECT id, query_string, full_url, referer
+                 FROM visitor_activity
+                 WHERE id > :last_id
+                 ORDER BY id ASC
+                 LIMIT 500",
+                ['last_id' => $lastId]
+            );
+
+            foreach ($rows as $row) {
+                $lastId = (int)$row['id'];
+                $queryString = activity_log_redact_query_string((string)($row['query_string'] ?? ''));
+                $fullUrl = activity_log_redact_url((string)($row['full_url'] ?? ''));
+                $referer = activity_log_redact_url((string)($row['referer'] ?? ''));
+
+                if ($queryString !== (string)($row['query_string'] ?? '')
+                    || $fullUrl !== (string)($row['full_url'] ?? '')
+                    || $referer !== (string)($row['referer'] ?? '')
+                ) {
+                    db_query(
+                        "UPDATE visitor_activity
+                         SET query_string = :query_string,
+                             full_url = :full_url,
+                             referer = :referer
+                         WHERE id = :id",
+                        [
+                            'query_string' => $queryString,
+                            'full_url' => $fullUrl,
+                            'referer' => $referer,
+                            'id' => $lastId,
+                        ]
+                    );
+                }
+            }
+        } while (count($rows) === 500);
+
+        db_save_setting_value('security_activity_redaction_v1', '1');
+    } catch (Throwable) {
+        // La journalisation ne doit jamais empêcher l'application de répondre.
+    }
 }
 
 function activity_log_current_user_id(): ?int
@@ -581,14 +829,48 @@ function activity_log_current_user_id(): ?int
     return null;
 }
 
+function activity_log_redact_query_string(string $queryString): string
+{
+    $pairs = explode('&', $queryString);
+
+    foreach ($pairs as &$pair) {
+        $separator = strpos($pair, '=');
+        $rawKey = $separator === false ? $pair : substr($pair, 0, $separator);
+        $key = rawurldecode(str_replace('+', ' ', $rawKey));
+
+        if (preg_match('/(?:^|_)(?:token|password|secret|key|code)(?:$|_)/i', $key) === 1) {
+            $pair = $rawKey . '=REDACTED';
+        }
+    }
+    unset($pair);
+
+    return implode('&', $pairs);
+}
+
+function activity_log_redact_url(string $url): string
+{
+    $queryStart = strpos($url, '?');
+    if ($queryStart === false) {
+        return $url;
+    }
+
+    $fragmentStart = strpos($url, '#', $queryStart);
+    $queryEnd = $fragmentStart === false ? strlen($url) : $fragmentStart;
+    $query = substr($url, $queryStart + 1, $queryEnd - $queryStart - 1);
+
+    return substr($url, 0, $queryStart + 1)
+        . activity_log_redact_query_string($query)
+        . substr($url, $queryEnd);
+}
+
 function activity_log_insert_current_request(bool $retryAfterCreate = true): void
 {
     $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
     $path = parse_url($uri, PHP_URL_PATH) ?: '';
-    $queryString = (string)($_SERVER['QUERY_STRING'] ?? '');
+    $queryString = activity_log_redact_query_string((string)($_SERVER['QUERY_STRING'] ?? ''));
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = (string)($_SERVER['HTTP_HOST'] ?? '');
-    $fullUrl = $host !== '' ? $scheme . '://' . $host . $uri : $uri;
+    $fullUrl = activity_log_redact_url($host !== '' ? $scheme . '://' . $host . $uri : $uri);
     $ipAddress = activity_log_ip_address();
     $userAgent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
     $visitorHash = hash('sha256', $ipAddress . '|' . $userAgent);
@@ -606,7 +888,7 @@ function activity_log_insert_current_request(bool $retryAfterCreate = true): voi
                 'path' => substr($path, 0, 255),
                 'query_string' => substr($queryString, 0, 500),
                 'full_url' => substr($fullUrl, 0, 1000),
-                'referer' => substr((string)($_SERVER['HTTP_REFERER'] ?? ''), 0, 1000),
+                'referer' => substr(activity_log_redact_url((string)($_SERVER['HTTP_REFERER'] ?? '')), 0, 1000),
                 'user_agent' => $userAgent,
                 'ip_address' => substr($ipAddress, 0, 45),
                 'http_status' => http_response_code(),

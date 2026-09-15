@@ -17,6 +17,7 @@ storage_quota_ensure_schema();
 $currentUser = current_user();
 $errors = [];
 $founderUserId = (int)(db_fetch_one("SELECT MIN(id) AS id FROM users")['id'] ?? 0);
+$currentUserIsFounder = (int)$currentUser['id'] === $founderUserId;
 $roleOptions = user_role_options();
 
 function admin_teacher_unique_username(string $email, string $firstName, string $lastName, ?int $existingUserId = null): string
@@ -61,6 +62,14 @@ if (is_post()) {
 
     if (
         !$errors
+        && $userId === $founderUserId
+        && !$currentUserIsFounder
+    ) {
+        $errors[] = 'Seul l’administrateur fondateur peut modifier son propre compte.';
+    }
+
+    if (
+        !$errors
         && $userId === (int)$currentUser['id']
         && in_array($action, ['disable', 'delete', 'make_user'], true)
     ) {
@@ -97,6 +106,7 @@ if (is_post()) {
                         } else {
                             $created = 0;
                             $updated = 0;
+                            $protected = 0;
                             $line = 0;
                             $generatedCredentials = [];
 
@@ -134,6 +144,12 @@ if (is_post()) {
 
                                 if ($existing) {
                                     $existingId = (int)$existing['id'];
+
+                                    if ($existingId === $founderUserId && !$currentUserIsFounder) {
+                                        $protected++;
+                                        continue;
+                                    }
+
                                     $username = admin_teacher_unique_username($email, $firstName, $lastName, $existingId);
                                     db_query(
                                         "UPDATE users
@@ -199,6 +215,10 @@ if (is_post()) {
                             if (!$errors) {
                                 $_SESSION['admin_import_credentials'] = $generatedCredentials;
                                 set_flash('success', 'Import terminé : ' . $created . ' compte(s) créé(s), ' . $updated . ' compte(s) mis à jour.');
+
+                                if ($protected > 0) {
+                                    set_flash('warning', $protected . ' ligne(s) correspondant au compte fondateur ont été ignorées.');
+                                }
                             }
                         }
                     }
@@ -644,15 +664,20 @@ if ($editUserId <= 0 && is_post() && in_array(post_value('action'), ['update', '
     $editUserId = (int)post_value('user_id');
 }
 $editUser = null;
+$editUserAccessDenied = false;
 
 if ($editUserId > 0) {
-    $editUser = db_fetch_one(
-        "SELECT id, username, email, display_name, discipline, admin_visible_password, bio, avatar, role, is_active, email_verified_at, created_at, used_storage_bytes, quota_storage_bytes
-         FROM users
-         WHERE id = :id
-         LIMIT 1",
-        ['id' => $editUserId]
-    );
+    if ($editUserId === $founderUserId && !$currentUserIsFounder) {
+        $editUserAccessDenied = true;
+    } else {
+        $editUser = db_fetch_one(
+            "SELECT id, username, email, display_name, discipline, admin_visible_password, bio, avatar, role, is_active, email_verified_at, created_at, used_storage_bytes, quota_storage_bytes
+             FROM users
+             WHERE id = :id
+             LIMIT 1",
+            ['id' => $editUserId]
+        );
+    }
 }
 
 $flashes = get_flashes();
@@ -662,6 +687,7 @@ unset($_SESSION['admin_import_credentials']);
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Utilisateurs — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1017,6 +1043,8 @@ unset($_SESSION['admin_import_credentials']);
                     <?php endif; ?>
                 </div>
             </section>
+        <?php elseif ($editUserAccessDenied): ?>
+            <div class="flash flash-warning">Seul l’administrateur fondateur peut modifier son propre compte.</div>
         <?php elseif ($editUserId > 0): ?>
             <div class="flash flash-warning">Utilisateur introuvable.</div>
         <?php endif; ?>
@@ -1089,16 +1117,18 @@ unset($_SESSION['admin_import_credentials']);
                                     <td><?= e($user['created_at']) ?></td>
                                     <td>
                                         <div class="admin-actions">
-                                            <a class="button-secondary" href="<?= e(admin_url('users.php?edit_id=' . (int)$user['id'] . '#edit-user')) ?>">
-                                                Modifier
-                                            </a>
+                                            <?php if ((int)$user['id'] !== $founderUserId || $currentUserIsFounder): ?>
+                                                <a class="button-secondary" href="<?= e(admin_url('users.php?edit_id=' . (int)$user['id'] . '#edit-user')) ?>">
+                                                    Modifier
+                                                </a>
 
-                                            <form method="post" action="" onsubmit="return confirm('Envoyer un lien de choix du mot de passe valable 24 heures à cet utilisateur ?');">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="user_id" value="<?= e((string)$user['id']) ?>">
-                                                <input type="hidden" name="action" value="send_password_link">
-                                                <button type="submit" class="button-secondary">Lien</button>
-                                            </form>
+                                                <form method="post" action="" onsubmit="return confirm('Envoyer un lien de choix du mot de passe valable 24 heures à cet utilisateur ?');">
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="user_id" value="<?= e((string)$user['id']) ?>">
+                                                    <input type="hidden" name="action" value="send_password_link">
+                                                    <button type="submit" class="button-secondary">Lien</button>
+                                                </form>
+                                            <?php endif; ?>
 
                                             <?php if ((int)$user['id'] === $founderUserId): ?>
                                                 <span class="badge badge-active">Protégé</span>

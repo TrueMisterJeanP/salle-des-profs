@@ -144,6 +144,7 @@ $myDrafts = db_fetch_all(
 <!doctype html>
 <html lang="fr">
 <head>
+    <meta name="theme-color" content="#ffffff">
     <meta charset="utf-8">
     <title>Mes articles — <?= e(APP_NAME) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -265,7 +266,7 @@ $myDrafts = db_fetch_all(
                         </p>
 
                         <?php if ((int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? '') === 'admin'): ?>
-                            <div class="form-actions">
+                            <div class="form-actions article-preview-actions">
                                 <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
                                     Modifier
                                 </a>

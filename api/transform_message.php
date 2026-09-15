@@ -64,11 +64,14 @@ if (!empty($message['receiver_id']) && (int)$message['receiver_id'] === (int)$us
 }
 
 if (!empty($message['group_id'])) {
-    $membership = db_fetch_one(
-        "SELECT role
-         FROM group_members
-         WHERE group_id = :group_id
-           AND user_id = :user_id
+    $groupAccess = db_fetch_one(
+        "SELECT groups.id
+         FROM groups
+         LEFT JOIN group_members
+           ON group_members.group_id = groups.id
+          AND group_members.user_id = :user_id
+         WHERE groups.id = :group_id
+           AND (groups.created_by = :user_id OR group_members.user_id IS NOT NULL)
          LIMIT 1",
         [
             'group_id' => $message['group_id'],
@@ -76,13 +79,9 @@ if (!empty($message['group_id'])) {
         ]
     );
 
-    if ($membership || ($user['role'] ?? '') === 'admin') {
+    if ($groupAccess) {
         $canUseMessage = true;
     }
-}
-
-if (($user['role'] ?? '') === 'admin') {
-    $canUseMessage = true;
 }
 
 if (!$canUseMessage) {

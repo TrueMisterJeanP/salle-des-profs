@@ -24,7 +24,7 @@ function federation_feed_type_filter(string $type): string
 {
     $type = strtolower(trim($type));
 
-    return in_array($type, ['post', 'article', 'event', 'incident', 'action', 'protection'], true) ? $type : '';
+    return in_array($type, ['event', 'incident', 'action', 'protection'], true) ? $type : '';
 }
 
 function federation_item_matches_feed_type(string $itemType, string $feedType): bool
@@ -50,66 +50,6 @@ function federation_local_feed_items(int $limit = 30, string $type = ''): array
     $protectionTypes = ['event', 'incident', 'action'];
     $isProtectionFeed = $type === 'protection';
     $items = [];
-
-    if ($type === '' || $type === 'post') {
-        $posts = db_fetch_all(
-            "SELECT posts.id, posts.content, posts.created_at, users.username, users.display_name
-             FROM posts
-             JOIN users ON users.id = posts.author_id
-             WHERE posts.is_published = 1
-               AND posts.visibility = 'public'
-             ORDER BY posts.created_at DESC
-            " . $limitSql,
-            $limitParams
-        );
-
-        foreach ($posts as $post) {
-            $summary = excerpt((string)$post['content'], 220);
-            $title = excerpt((string)$post['content'], 80);
-
-            $items[] = [
-                'type' => 'post',
-                'type_label' => 'Annonce',
-                'id' => (int)$post['id'],
-                'title' => $title !== '' ? $title : 'Annonce publique',
-                'date' => (string)$post['created_at'],
-                'badge' => '',
-                'summary' => $summary,
-                'location' => '',
-                'meta' => 'Par ' . (string)($post['display_name'] ?: $post['username']),
-                'url' => url('public.php') . '#post-' . (int)$post['id'],
-            ];
-        }
-    }
-
-    if ($type === '' || $type === 'article') {
-        $articles = db_fetch_all(
-            "SELECT articles.id, articles.title, articles.slug, articles.content, articles.excerpt,
-                    articles.published_at, articles.created_at, users.username, users.display_name
-             FROM articles
-             JOIN users ON users.id = articles.author_id
-             WHERE articles.status = 'published'
-               AND articles.visibility = 'public'
-             ORDER BY articles.published_at DESC, articles.created_at DESC
-            " . $limitSql,
-            $limitParams
-        );
-
-        foreach ($articles as $article) {
-            $items[] = [
-                'type' => 'article',
-                'type_label' => 'Article',
-                'id' => (int)$article['id'],
-                'title' => (string)$article['title'],
-                'date' => (string)($article['published_at'] ?: $article['created_at']),
-                'badge' => '',
-                'summary' => excerpt((string)($article['excerpt'] ?: $article['content']), 220),
-                'location' => '',
-                'meta' => 'Par ' . (string)($article['display_name'] ?: $article['username']),
-                'url' => url('public_article.php?slug=' . rawurlencode((string)$article['slug'])),
-            ];
-        }
-    }
 
     if ($type === '' || $type === 'event' || $isProtectionFeed) {
         $events = db_fetch_all(
@@ -251,7 +191,7 @@ function federation_configured_follow_slots(): array
             continue;
         }
 
-        if (!filter_var($url, FILTER_VALIDATE_URL) || !federation_token_is_valid($token)) {
+        if (!http_url_has_allowed_scheme($url) || !federation_token_is_valid($token)) {
             continue;
         }
 
@@ -313,7 +253,7 @@ function federation_fetch_remote_slot(array $slot, int $limit = 30, string $type
     $token = trim((string)($slot['token'] ?? ''));
     $type = federation_feed_type_filter($type);
 
-    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+    if ($url === '' || !http_url_has_allowed_scheme($url)) {
         return ['items' => [], 'error' => 'URL de fédération invalide.'];
     }
 
@@ -584,6 +524,10 @@ function federation_cached_items(int $limit = 100): array
 
 function federation_http_get(string $url, string $token): ?string
 {
+    if (!http_url_has_allowed_scheme($url)) {
+        return null;
+    }
+
     $headers = [
         'Authorization: Bearer ' . $token,
         'Accept: application/json',
@@ -593,19 +537,33 @@ function federation_http_get(string $url, string $token): ?string
         $handle = curl_init($url);
 
         if ($handle !== false) {
+            $body = '';
             curl_setopt_array($handle, [
-                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_RETURNTRANSFER => false,
                 CURLOPT_CONNECTTIMEOUT => 2,
                 CURLOPT_TIMEOUT => 4,
                 CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_MAXREDIRS => 2,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                CURLOPT_UNRESTRICTED_AUTH => false,
+                CURLOPT_MAXFILESIZE => 5 * 1024 * 1024,
+                CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$body): int {
+                    if (strlen($body) + strlen($chunk) > 5 * 1024 * 1024) {
+                        return 0;
+                    }
+
+                    $body .= $chunk;
+
+                    return strlen($chunk);
+                },
             ]);
 
-            $body = curl_exec($handle);
+            $executed = curl_exec($handle);
             $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
 
-            return is_string($body) && $status >= 200 && $status < 300 ? $body : null;
+            return $executed !== false && $status >= 200 && $status < 300 ? $body : null;
         }
     }
 
@@ -615,11 +573,12 @@ function federation_http_get(string $url, string $token): ?string
             'header' => implode("\r\n", $headers),
             'timeout' => 4,
             'ignore_errors' => true,
+            'follow_location' => 0,
         ],
     ]);
-    $body = @file_get_contents($url, false, $context);
+    $body = @file_get_contents($url, false, $context, 0, 5 * 1024 * 1024 + 1);
 
-    if (!is_string($body)) {
+    if (!is_string($body) || strlen($body) > 5 * 1024 * 1024) {
         return null;
     }
 

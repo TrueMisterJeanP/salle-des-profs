@@ -33,19 +33,6 @@ if (!$peer || (int)$peer['is_active'] !== 1) {
 }
 
 try {
-    db_query(
-        "UPDATE messages
-         SET is_read = 1
-         WHERE receiver_id = :current_user_id
-           AND sender_id = :peer_id
-           AND group_id IS NULL
-           AND is_read = 0",
-        [
-            'current_user_id' => $user['id'],
-            'peer_id' => $peerId,
-        ]
-    );
-
     $messages = db_fetch_all(
         "SELECT messages.id,
                 messages.sender_id,
