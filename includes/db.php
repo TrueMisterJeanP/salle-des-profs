@@ -326,3 +326,6 @@ function db_insert(string $sql, array $params = []): int
     db_query($sql, $params);
     return (int) db()->lastInsertId();
 }
+
+require_once __DIR__ . '/request_guard.php';
+request_guard_handle_current_request();

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/request_guard.php';
 
 $tests = [];
 
@@ -38,9 +39,42 @@ $tests['Endpoint API détecté comme JSON'] = request_expects_json() === true;
 $_SERVER['REQUEST_URI'] = '/public/dashboard.php';
 $_SERVER['HTTP_ACCEPT'] = 'text/html';
 $tests['Page HTML non détectée comme JSON'] = request_expects_json() === false;
+$tests['Empreinte IP stable'] = request_guard_ip_hash('203.0.113.10') === request_guard_ip_hash('203.0.113.10');
+$tests['Empreintes IP séparées'] = request_guard_ip_hash('203.0.113.10') !== request_guard_ip_hash('203.0.113.11');
+$tests['Empreinte URL stable'] = request_guard_route_hash('/absent?a=1') === request_guard_route_hash('/absent?a=1');
+$tests['Requêtes REST distinctes comptables'] = request_guard_route_hash('/public/public.php?rest_route=/wp/v2/tags')
+    !== request_guard_route_hash('/public/public.php?rest_route=/wp/v2/pages');
+$_SERVER['REQUEST_URI'] = '/public/404.php';
+$_SERVER['REDIRECT_URL'] = '/vraie-url-absente';
+$_SERVER['REDIRECT_QUERY_STRING'] = 'test=1';
+$tests['URL 404 Apache d’origine conservée'] = request_guard_not_found_uri() === '/vraie-url-absente?test=1';
+unset($_SERVER['REDIRECT_URL'], $_SERVER['REDIRECT_QUERY_STRING']);
+
+$_SERVER['SCRIPT_NAME'] = '/public/404.php';
+$_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/404.php';
+$tests['Requête vers la page 404 reconnue'] = request_guard_is_not_found_request() === true;
+$_SERVER['SCRIPT_NAME'] = '/public/dashboard.php';
+$_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/dashboard.php';
+$tests['Route valide reconnue'] = request_guard_is_not_found_request() === false;
+$_SERVER['SCRIPT_NAME'] = '/public/login.php';
+$_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/login.php';
+$tests['Formulaire login protégé du bannissement'] = request_guard_is_login_request() === true;
+$_SERVER['SCRIPT_NAME'] = '/public/messenger_login.php';
+$_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/messenger_login.php';
+$tests['Formulaire messenger protégé du bannissement'] = request_guard_is_login_request() === true;
 
 unset($_SERVER['HTTP_X_FORWARDED_FOR']);
 app_start_session();
+$tests['Visiteur anonyme reconnu'] = request_guard_is_authenticated() === false;
+$_SESSION['user_id'] = 123;
+$tests['Utilisateur connecté reconnu'] = request_guard_is_authenticated() === true;
+$authenticatedAttempt = request_guard_record_not_found('/url-inexistante', 1_700_000_000);
+$tests['404 connectée jamais bloquée'] = $authenticatedAttempt === [
+    'attempts' => 0,
+    'blocked' => false,
+    'retry_after' => 0,
+];
+unset($_SESSION['user_id']);
 $cookieParameters = session_get_cookie_params();
 $tests['Cookie de session HttpOnly'] = ($cookieParameters['httponly'] ?? false) === true;
 $tests['Cookie de session SameSite'] = ($cookieParameters['samesite'] ?? '') === 'Lax';

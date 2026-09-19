@@ -43,3 +43,13 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 
 - Les erreurs détaillées ne devraient pas être affichées aux utilisateurs en production. Les enregistrer côté serveur dans des logs non publics.
 - Ajouter une journalisation des actions sensibles : suppression utilisateur, changement de rôle, suppression de message, changement de visibilité, exécution de migration.
+
+## URL inexistantes et scans automatisés
+
+- Apache envoie les URL inexistantes vers `public/404.php`. Les paramètres `rest_route` adressés à `public/public.php` sont également traités comme des 404, car l'application n'expose pas l'API REST de WordPress.
+- Pour un visiteur non connecté, trois URL inexistantes consécutives demandées par la même IP en moins de dix minutes déclenchent une réponse HTTP `429` avec l'en-tête `Retry-After`. Une URL valide remet immédiatement le compteur à zéro et reste accessible, sans lever un bannissement déjà prononcé.
+- Pendant les dix minutes de bannissement, un visiteur non connecté ne peut accéder ni à `login.php` ni à `messenger_login.php`.
+- Un utilisateur connecté n'est jamais soumis à ce blocage, y compris lorsqu'il demande une URL inexistante.
+- Les adresses IP sont hachées dans les tables `missing_route_attempts` et `blocked_clients`. Les traces de 404 sont nettoyées après 24 heures et les blocages expirés sont supprimés.
+- Derrière un proxy inverse, renseigner impérativement `TRUSTED_PROXY_IPS`. Sinon, plusieurs visiteurs pourraient être vus comme la même adresse du proxy.
+- Cette défense applicative protège les pages PHP. Pour absorber un déni de service volumétrique ou bloquer aussi les fichiers statiques, ajouter un pare-feu/WAF ou une règle équivalente chez l'hébergeur.

@@ -618,6 +618,26 @@ ON protection_resources(is_pinned, pinned_at);
 CREATE INDEX IF NOT EXISTS idx_protection_action_plans_status
 ON protection_action_plans(status);
 
+CREATE TABLE IF NOT EXISTS missing_route_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_hash VARCHAR(64) NOT NULL,
+    route_hash VARCHAR(64) NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    attempted_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_missing_route_attempts_lookup
+ON missing_route_attempts(ip_hash, attempted_at);
+
+CREATE TABLE IF NOT EXISTS blocked_clients (
+    ip_hash VARCHAR(64) PRIMARY KEY,
+    blocked_until INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_clients_until
+ON blocked_clients(blocked_until);
+
 INSERT OR IGNORE INTO settings (setting_key, setting_value) VALUES
 ('site_name', 'Salle des profs'),
 ('site_meta_title', 'Salle des profs'),

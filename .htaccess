@@ -7,6 +7,13 @@
 
 RewriteEngine On
 
+ErrorDocument 404 /public/404.php
+
+# L'application n'expose aucune route REST WordPress. Ces paramètres adressés
+# à public.php sont donc des URL inexistantes et doivent passer par la 404.
+RewriteCond %{QUERY_STRING} (^|&)rest_route(?:=|&|$) [NC]
+RewriteRule ^public/public\.php$ public/404.php [END,QSD]
+
 RewriteRule ^(?:database|uploads|includes|templates|tests|docs)(?:/|$) - [F,L,NC]
 RewriteRule ^(?:\.git|\.agents|\.codex)(?:/|$) - [F,L,NC]
 RewriteRule ^(?:\.env(?:\..*)?|import_enseignants\.csv)$ - [F,L,NC]
