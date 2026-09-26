@@ -349,7 +349,7 @@ function render_markdown_images(string $text): string
                 return $matches[0];
             }
 
-            return '<img class="markdown-image" src="' . e($url) . '" alt="' . e($alt) . '" loading="lazy">';
+            return '<img class="markdown-image" src="' . e(markdown_resolve_url($url)) . '" alt="' . e($alt) . '" loading="lazy">';
         },
         $text
     ) ?? $text;
@@ -401,9 +401,9 @@ function render_markdown_links(string $text): string
 
         if (is_markdown_file_image_link($label, $url)) {
             $alt = html_entity_decode($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-            $result .= '<img class="markdown-image" src="' . e($url) . '" alt="' . e($alt) . '" loading="lazy">';
+            $result .= '<img class="markdown-image" src="' . e(markdown_resolve_url($url)) . '" alt="' . e($alt) . '" loading="lazy">';
         } elseif (is_markdown_safe_url($url)) {
-            $result .= '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer">' . $label . '</a>';
+            $result .= '<a href="' . e(markdown_resolve_url($url)) . '" target="_blank" rel="noopener noreferrer">' . $label . '</a>';
         } else {
             $result .= '[' . $label . '](' . $url . ')';
         }
@@ -422,6 +422,19 @@ function is_markdown_file_image_link(string $label, string $url): bool
 
     return preg_match('/^file\.php\?id=\d+$/', $url) === 1
         || preg_match('#^https?://[^\\s]+/public/file\.php\?id=\d+$#', $url) === 1;
+}
+
+/**
+ * Rend absolues les adresses relatives file.php?id= pour qu'elles restent valides
+ * quelle que soit la profondeur de l'URL de la page (/article/mon-titre…).
+ */
+function markdown_resolve_url(string $url): string
+{
+    if (function_exists('url') && preg_match('/^file\.php\?id=\d+$/', $url) === 1) {
+        return url($url);
+    }
+
+    return $url;
 }
 
 function is_markdown_safe_url(string $url): bool

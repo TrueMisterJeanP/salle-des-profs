@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/pagination.php';
 
 require_admin();
+groups_ensure_slug_column();
 
 db_query("UPDATE groups SET visibility = 'members' WHERE visibility = 'public'");
 
@@ -211,7 +212,7 @@ $flashes = get_flashes();
                                 <tr>
                                     <td>
                                         <strong>
-                                            <a href="<?= e(url('group.php?id=' . (int)$group['id'])) ?>">
+                                            <a href="<?= e(group_url((string)$group['slug'])) ?>">
                                                 <?= e($group['name']) ?>
                                             </a>
                                         </strong>
@@ -243,7 +244,7 @@ $flashes = get_flashes();
                                     <td><?= e($group['created_at']) ?></td>
                                     <td>
                                         <div class="admin-actions">
-                                            <a class="button-secondary" href="<?= e(url('group.php?id=' . (int)$group['id'])) ?>">
+                                            <a class="button-secondary" href="<?= e(group_url((string)$group['slug'])) ?>">
                                                 Ouvrir
                                             </a>
 

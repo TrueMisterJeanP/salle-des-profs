@@ -456,7 +456,7 @@ $flashes = get_flashes();
                             <article class="article-preview">
                                 <div class="article-preview-header">
                                     <h3>
-                                        <a href="<?= e(url('public_article.php?slug=' . urlencode($article['slug']))) ?>">
+                                        <a href="<?= e(public_article_url($article['slug'])) ?>">
                                             <?= e($article['title']) ?>
                                         </a>
                                     </h3>

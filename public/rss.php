@@ -62,7 +62,7 @@ try {
             'type' => 'article',
             'title' => $article['title'],
             'description' => $article['excerpt'] ?: excerpt($article['content'], 300),
-            'link' => url('public_article.php?slug=' . urlencode($article['slug'])),
+            'link' => public_article_url($article['slug']),
             'date' => $article['published_at'] ?: $article['created_at'],
             'guid' => 'article-' . (int)$article['id'],
         ];

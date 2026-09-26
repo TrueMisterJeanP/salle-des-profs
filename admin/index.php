@@ -216,7 +216,7 @@ try {
                     <?php foreach ($recentArticles as $article): ?>
                         <div class="article-preview">
                             <h3>
-                                <a href="<?= e(url('article.php?slug=' . urlencode($article['slug']))) ?>">
+                                <a href="<?= e(article_url($article['slug'])) ?>">
                                     <?= e($article['title']) ?>
                                 </a>
                             </h3>

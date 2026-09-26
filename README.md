@@ -71,7 +71,7 @@ Installation locale rapide :
 ```sh
 git clone URL_DU_DEPOT/salle-des-profs.git
 cd salle-des-profs
-php -S localhost:8000
+php -S localhost:8000 router.php
 ```
 
 Ouvrez ensuite `http://localhost:8000/install.php`. Pour un déploiement réel,

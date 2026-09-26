@@ -207,7 +207,7 @@ $myDrafts = db_fetch_all(
                                     <td><?= e($draft['created_at']) ?></td>
                                     <td><?= e($draft['updated_at'] ?: '-') ?></td>
                                     <td>
-                                        <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$draft['id'])) ?>">
+                                        <a class="button-primary" href="<?= e(article_edit_url((string)$draft['slug'])) ?>">
                                             Modifier
                                         </a>
                                         <form method="post" action="<?= e($returnUrl) ?>" onsubmit="return confirm('Supprimer définitivement ce brouillon ?');">
@@ -239,7 +239,7 @@ $myDrafts = db_fetch_all(
                     <article class="article-preview">
                         <div class="article-preview-header">
                             <h2>
-                                <a href="<?= e(url('article.php?slug=' . urlencode($article['slug']))) ?>">
+                                <a href="<?= e(article_url($article['slug'])) ?>">
                                     <?= e($article['title']) ?>
                                 </a>
                             </h2>
@@ -267,7 +267,7 @@ $myDrafts = db_fetch_all(
 
                         <?php if ((int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? '') === 'admin'): ?>
                             <div class="form-actions article-preview-actions">
-                                <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
+                                <a class="button-primary" href="<?= e(article_edit_url((string)$article['slug'])) ?>">
                                     Modifier
                                 </a>
                                 <?php if ((int)$article['author_id'] === (int)$user['id'] && $article['visibility'] === 'public' && $mastodonConfigured): ?>

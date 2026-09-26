@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 
 require_login();
+groups_ensure_slug_column();
 
 $user = current_user();
 
@@ -37,7 +38,7 @@ if ($content === '' && $attachmentId <= 0) {
 }
 
 $group = db_fetch_one(
-    "SELECT id, name, created_by
+    "SELECT id, name, slug, created_by
      FROM groups
      WHERE id = :id
      LIMIT 1",
@@ -126,7 +127,7 @@ try {
                 [
                     'user_id' => $member['user_id'],
                     'content' => 'Nouveau message dans le groupe « ' . $group['name'] . ' »',
-                    'link' => url('messenger.php?type=group&group_id=' . $groupId),
+                    'link' => messenger_group_url((string)$group['slug']),
                     'created_at' => now(),
                 ]
             );

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/pagination.php';
 require_once __DIR__ . '/../includes/protection.php';
 
 require_login();
+groups_ensure_slug_column();
 protection_ensure_schema();
 
 $user = current_user();
@@ -239,7 +240,8 @@ if ($query !== '') {
         sender.display_name AS sender_display_name,
         receiver.username AS receiver_username,
         receiver.display_name AS receiver_display_name,
-        groups.name AS group_name
+        groups.name AS group_name,
+        groups.slug AS group_slug
         FROM messages
         JOIN users sender ON sender.id = messages.sender_id
         LEFT JOIN users receiver ON receiver.id = messages.receiver_id
@@ -327,7 +329,7 @@ $flashes = get_flashes();
                     <h2>Articles</h2>
                     <?php if (!$articles): ?><p class="muted">Aucun article trouvé.</p><?php else: ?>
                         <ul><?php foreach ($articles as $article): ?><li>
-                            <h3><a href="<?= e(url('article.php?slug=' . urlencode($article['slug']))) ?>"><?= e($article['title']) ?></a></h3>
+                            <h3><a href="<?= e(article_url($article['slug'])) ?>"><?= e($article['title']) ?></a></h3>
                             <p><?= e(excerpt($article['excerpt'] ?: $article['content'], 180)) ?></p>
                             <p class="meta"><?= e($article['display_name'] ?: $article['username']) ?> · <?= e($article['published_at'] ?: $article['created_at']) ?></p>
                         </li><?php endforeach; ?></ul>
@@ -382,7 +384,7 @@ $flashes = get_flashes();
                     <h2>Groupes</h2>
                     <?php if (!$groups): ?><p class="muted">Aucun groupe trouvé.</p><?php else: ?>
                         <ul><?php foreach ($groups as $group): ?><li>
-                            <h3><a href="<?= e(url('group.php?id=' . (int)$group['id'])) ?>"><?= e($group['name']) ?></a></h3>
+                            <h3><a href="<?= e(group_url((string)$group['slug'])) ?>"><?= e($group['name']) ?></a></h3>
                             <p><?= e(excerpt((string)($group['description'] ?? ''), 160)) ?></p>
                             <p class="meta"><?= e((string)$group['member_count']) ?> membre(s) · <?= e(visibility_label($group['visibility'])) ?></p>
                         </li><?php endforeach; ?></ul>
@@ -396,8 +398,8 @@ $flashes = get_flashes();
                             <p><?= nl2br(e(excerpt($message['content'] ?? '', 200))) ?></p>
                             <p class="meta">
                                 De <?= e($message['sender_display_name'] ?: $message['sender_username']) ?>
-                                <?php if (!empty($message['group_id'])): ?> · groupe : <a href="<?= e(url('group.php?id=' . (int)$message['group_id'])) ?>"><?= e($message['group_name'] ?? 'Groupe') ?></a>
-                                <?php elseif (!empty($message['receiver_id'])): ?><?php $peerId = (int)$message['sender_id'] === (int)$user['id'] ? (int)$message['receiver_id'] : (int)$message['sender_id']; ?> · <a href="<?= e(url('chat.php?user_id=' . $peerId)) ?>">ouvrir la conversation privée</a><?php endif; ?>
+                                <?php if (!empty($message['group_id'])): ?> · groupe : <a href="<?= e(group_url((string)$message['group_slug'])) ?>"><?= e($message['group_name'] ?? 'Groupe') ?></a>
+                                <?php elseif (!empty($message['receiver_id'])): ?><?php $peerUsername = (int)$message['sender_id'] === (int)$user['id'] ? (string)$message['receiver_username'] : (string)$message['sender_username']; ?> · <a href="<?= e(chat_url($peerUsername)) ?>">ouvrir la conversation privée</a><?php endif; ?>
                                 · <?= e($message['created_at']) ?>
                             </p>
                         </li><?php endforeach; ?></ul>

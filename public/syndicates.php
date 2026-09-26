@@ -303,7 +303,7 @@ $flashes = get_flashes();
                                     <strong><?= e($member['display_name'] ?: $member['username']) ?></strong>
                                     <span class="meta">@<?= e($member['username']) ?></span>
                                 </div>
-                                <a class="button-secondary" href="<?= e(url('messenger.php?type=private&user_id=' . (int)$member['id'])) ?>">Message</a>
+                                <a class="button-secondary" href="<?= e(messenger_private_url((string)$member['username'])) ?>">Message</a>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -348,7 +348,7 @@ $flashes = get_flashes();
                                             <span class="meta">@<?= e($member['username']) ?></span>
                                         </div>
                                         <?php if ((int)$member['id'] !== (int)$user['id']): ?>
-                                            <a class="button-secondary" href="<?= e(url('messenger.php?type=private&user_id=' . (int)$member['id'])) ?>">Message</a>
+                                            <a class="button-secondary" href="<?= e(messenger_private_url((string)$member['username'])) ?>">Message</a>
                                         <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>

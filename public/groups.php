@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/pagination.php';
 require_once __DIR__ . '/../includes/web_notifications.php';
 
 require_login();
+groups_ensure_slug_column();
 
 db_query("UPDATE groups SET visibility = 'members' WHERE visibility = 'public'");
 
@@ -68,6 +69,7 @@ if (is_post()) {
                 db_query(
                     "UPDATE groups
                      SET name = :name,
+                         slug = :slug,
                          description = :description,
                          visibility = :visibility,
                          updated_at = :updated_at
@@ -75,6 +77,7 @@ if (is_post()) {
                        AND created_by = :created_by",
                     [
                         'name' => $name,
+                        'slug' => group_unique_slug($name, $editGroupId),
                         'description' => $description,
                         'visibility' => $visibility,
                         'updated_at' => now(),
@@ -86,11 +89,13 @@ if (is_post()) {
                 set_flash('success', 'Groupe modifié.');
                 redirect(url('groups.php?page=' . $page));
             } else {
+                $groupSlug = group_unique_slug($name);
                 $groupId = db_insert(
-                    "INSERT INTO groups (name, description, created_by, visibility, created_at)
-                     VALUES (:name, :description, :created_by, :visibility, :created_at)",
+                    "INSERT INTO groups (name, slug, description, created_by, visibility, created_at)
+                     VALUES (:name, :slug, :description, :created_by, :visibility, :created_at)",
                     [
                         'name' => $name,
+                        'slug' => $groupSlug,
                         'description' => $description,
                         'created_by' => $user['id'],
                         'visibility' => $visibility,
@@ -109,7 +114,7 @@ if (is_post()) {
                 );
 
                 set_flash('success', 'Groupe créé.');
-                redirect(url('group.php?id=' . $groupId));
+                redirect(group_url($groupSlug));
             }
         } catch (Throwable $e) {
             $errors[] = 'Erreur : ' . $e->getMessage();
@@ -297,7 +302,7 @@ $flashes = get_flashes();
                         <div class="group-card-header">
                             <div>
                                 <h2>
-                                    <a href="<?= e(url('group.php?id=' . (int)$group['id'])) ?>">
+                                    <a href="<?= e(group_url((string)$group['slug'])) ?>">
                                         <?= e($group['name']) ?>
                                     </a>
                                 </h2>

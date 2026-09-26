@@ -225,7 +225,7 @@ $flashes = get_flashes();
                                     <td>
                                         <?php if (!empty($comment['article_slug'])): ?>
                                             Article :
-                                            <a href="<?= e(url('article.php?slug=' . urlencode($comment['article_slug']))) ?>">
+                                            <a href="<?= e(article_url($comment['article_slug'])) ?>">
                                                 <?= e($comment['article_title'] ?: 'Article') ?>
                                             </a>
                                         <?php else: ?>

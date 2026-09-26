@@ -1,0 +1,3 @@
+-- La colonne groups.slug (URL lisibles /groupe/nom-du-groupe) est ajoutée et
+-- renseignée automatiquement par groups_ensure_slug_column() afin de rester
+-- compatible avec SQLite et MySQL.

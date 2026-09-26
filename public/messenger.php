@@ -34,8 +34,30 @@ if (is_post() && post_value('action') === 'logout') {
 }
 
 $mode = get_value('type') === 'group' ? 'group' : 'private';
-$selectedUserId = (int)get_value('user_id', '0');
-$selectedGroupId = (int)get_value('group_id', '0');
+// Anciennes adresses messenger.php?user_id=5 / ?group_id=3, redirigées vers
+// /messagerie/prive/nom-utilisateur et /messagerie/groupe/nom-du-groupe.
+$legacySelectedUserId = (int)get_value('user_id', '0');
+$legacySelectedGroupId = (int)get_value('group_id', '0');
+$selectedUserId = $legacySelectedUserId;
+$selectedGroupId = $legacySelectedGroupId;
+$selectedUsername = get_value('user');
+$selectedGroupSlug = get_value('group');
+
+groups_ensure_slug_column();
+
+if ($selectedUsername !== '') {
+    $selectedUserId = (int)(db_fetch_one(
+        "SELECT id FROM users WHERE username = :username LIMIT 1",
+        ['username' => $selectedUsername]
+    )['id'] ?? -1);
+}
+
+if ($selectedGroupSlug !== '') {
+    $selectedGroupId = (int)(db_fetch_one(
+        "SELECT id FROM groups WHERE slug = :slug LIMIT 1",
+        ['slug' => $selectedGroupSlug]
+    )['id'] ?? -1);
+}
 $messageAttachments = user_attachment_options((int)$user['id']);
 $uploadSizeLimit = effective_upload_size_limit();
 
@@ -84,6 +106,7 @@ $contacts = db_fetch_all(
 $groups = db_fetch_all(
     "SELECT groups.id,
             groups.name,
+            groups.slug,
             groups.description,
             groups.visibility,
             groups.created_by,
@@ -106,11 +129,11 @@ $groups = db_fetch_all(
     ['current_user_id' => $user['id']]
 );
 
-if ($mode === 'private' && $selectedUserId <= 0 && $contacts) {
+if ($mode === 'private' && $selectedUserId === 0 && $contacts) {
     $selectedUserId = (int)$contacts[0]['id'];
 }
 
-if ($mode === 'group' && $selectedGroupId <= 0 && $groups) {
+if ($mode === 'group' && $selectedGroupId === 0 && $groups) {
     $selectedGroupId = (int)$groups[0]['id'];
 }
 
@@ -181,6 +204,14 @@ if ($mode === 'group' && $selectedGroupId > 0) {
     );
 }
 
+if ($selectedUser && $legacySelectedUserId > 0) {
+    redirect_legacy_slug_url(messenger_private_url((string)$selectedUser['username']));
+}
+
+if ($selectedGroup && $legacySelectedGroupId > 0) {
+    redirect_legacy_slug_url(messenger_group_url((string)$selectedGroup['slug']));
+}
+
 if ($selectedGroup) {
     $canDeleteGroupConversation = (int)$selectedGroup['created_by'] === (int)$user['id']
         || ($user['role'] ?? '') === 'admin';
@@ -239,7 +270,7 @@ $flashes = get_flashes();
                         <p class="muted">Aucun membre disponible.</p>
                     <?php else: ?>
                         <?php foreach ($contacts as $contact): ?>
-                            <a class="contact-item <?= (int)$contact['id'] === $selectedUserId ? 'active' : '' ?>" href="<?= e(url('messenger.php?type=private&user_id=' . (int)$contact['id'])) ?>">
+                            <a class="contact-item <?= (int)$contact['id'] === $selectedUserId ? 'active' : '' ?>" href="<?= e(messenger_private_url((string)$contact['username'])) ?>">
                                 <span class="contact-avatar">
                                     <?php if (!empty($contact['avatar'])): ?>
                                         <img src="<?= e(avatar_url((int)$contact['id'], (string)$contact['avatar'])) ?>" alt="">
@@ -264,7 +295,7 @@ $flashes = get_flashes();
                         <p class="muted">Aucun groupe disponible.</p>
                     <?php else: ?>
                         <?php foreach ($groups as $group): ?>
-                            <a class="contact-item <?= (int)$group['id'] === $selectedGroupId ? 'active' : '' ?>" href="<?= e(url('messenger.php?type=group&group_id=' . (int)$group['id'])) ?>">
+                            <a class="contact-item <?= (int)$group['id'] === $selectedGroupId ? 'active' : '' ?>" href="<?= e(messenger_group_url((string)$group['slug'])) ?>">
                                 <span class="contact-avatar">#</span>
                                 <span>
                                     <strong><?= e($group['name']) ?></strong>

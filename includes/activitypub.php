@@ -352,7 +352,7 @@ function activitypub_article_object(array $article): array
     $actor = activitypub_actor_for_username($username);
     $actorUrl = $actor ? (string)$actor['actor_url'] : activitypub_actor_url($username);
     $objectUrl = activitypub_base_url() . '/ap_article.php?id=' . (int)$article['id'];
-    $publicUrl = url('public_article.php?slug=' . rawurlencode((string)$article['slug']));
+    $publicUrl = public_article_url((string)$article['slug']);
 
     return [
         '@context' => 'https://www.w3.org/ns/activitystreams',

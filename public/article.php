@@ -23,6 +23,8 @@ if ($slug === '') {
     exit('Article introuvable.');
 }
 
+redirect_legacy_slug_url(article_url($slug));
+
 $article = db_fetch_one(
     "SELECT articles.*, users.username, users.display_name, users.avatar, groups.name AS group_name
      FROM articles
@@ -135,7 +137,7 @@ if (is_post()) {
                 );
 
                 set_flash('success', 'Commentaire ajouté.');
-                redirect(url('article.php?slug=' . urlencode($article['slug'])));
+                redirect(article_url($article['slug']));
             } catch (Throwable $e) {
                 $errors[] = 'Erreur : ' . $e->getMessage();
             }
@@ -254,7 +256,7 @@ $canEdit = (int)$article['author_id'] === (int)$user['id'] || ($user['role'] ?? 
                         <button type="submit" class="button-danger">Supprimer</button>
                     </form>
 
-                    <a class="button-primary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
+                    <a class="button-primary" href="<?= e(article_edit_url((string)$article['slug'])) ?>">
                         Modifier
                     </a>
 

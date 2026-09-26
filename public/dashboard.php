@@ -593,7 +593,7 @@ try {
                         <div class="article-preview">
                             <div class="article-preview-header">
                                 <h3>
-                                    <a href="<?= e(url('article.php?slug=' . urlencode($article['slug']))) ?>">
+                                    <a href="<?= e(article_url($article['slug'])) ?>">
                                         <?= e($article['title']) ?>
                                     </a>
                                 </h3>

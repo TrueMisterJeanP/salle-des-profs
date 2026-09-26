@@ -14,7 +14,17 @@ $user = current_user();
 $messengerNotificationsEnabled = web_notifications_messenger_enabled((int)$user['id']);
 $messengerPreferenceEndpoint = parse_url(root_url('api/message_alert_preference.php'), PHP_URL_PATH) ?: '../api/message_alert_preference.php';
 $messengerAlertsEndpoint = parse_url(root_url('api/message_alerts.php'), PHP_URL_PATH) ?: '../api/message_alerts.php';
-$selectedUserId = (int)get_value('user_id', '0');
+$selectedUsername = get_value('user');
+// Ancienne adresse chat.php?user_id=5, redirigée vers /messages/nom-utilisateur.
+$legacySelectedUserId = (int)get_value('user_id', '0');
+$selectedUserId = $legacySelectedUserId;
+
+if ($selectedUsername !== '') {
+    $selectedUserId = (int)(db_fetch_one(
+        "SELECT id FROM users WHERE username = :username LIMIT 1",
+        ['username' => $selectedUsername]
+    )['id'] ?? 0);
+}
 $messageAttachments = user_attachment_options((int)$user['id']);
 $uploadSizeLimit = effective_upload_size_limit();
 $membersPage = current_page('members_page');
@@ -57,6 +67,14 @@ if ($selectedUserId > 0) {
          LIMIT 1",
         ['id' => $selectedUserId]
     );
+}
+
+if ($selectedUser && $legacySelectedUserId > 0) {
+    $legacyMembersPage = (int)get_value('members_page', '0');
+    redirect_legacy_slug_url(chat_url(
+        (string)$selectedUser['username'],
+        $legacyMembersPage > 0 ? ['members_page' => $legacyMembersPage] : []
+    ));
 }
 
 if ($selectedUser) {
@@ -132,7 +150,7 @@ $flashes = get_flashes();
                         </button>
                         <a
                             class="button-secondary messenger-open-button"
-                            href="<?= e(url('messenger.php?type=private' . ($selectedUser ? '&user_id=' . (int)$selectedUser['id'] : ''))) ?>"
+                            href="<?= e($selectedUser ? messenger_private_url((string)$selectedUser['username']) : url('messenger.php?type=private')) ?>"
                             aria-label="Ouvrir la messagerie instantanée"
                             title="Ouvrir la messagerie instantanée"
                         >
@@ -156,7 +174,7 @@ $flashes = get_flashes();
                         <?php foreach ($users as $member): ?>
                             <a
                                 class="contact-item <?= (int)$member['id'] === $selectedUserId ? 'active' : '' ?>"
-                                href="<?= e(url('chat.php?user_id=' . (int)$member['id'] . '&members_page=' . $membersPage)) ?>"
+                                href="<?= e(chat_url((string)$member['username'], ['members_page' => $membersPage])) ?>"
                             >
                                 <span class="contact-avatar">
                                     <?php if (!empty($member['avatar'])): ?>

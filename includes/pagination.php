@@ -38,7 +38,15 @@ function total_pages(int $totalItems, int $perPage): int
  */
 function page_url(int $page, string $param = 'page'): string
 {
+    // Paramètres de l'adresse demandée, sans ceux ajoutés par la réécriture des URL lisibles (slug=…).
     $params = $_GET;
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+
+    if ($requestUri !== '') {
+        $params = [];
+        parse_str((string)(parse_url($requestUri, PHP_URL_QUERY) ?? ''), $params);
+    }
+
     $params[$param] = $page;
 
     return '?' . http_build_query($params);

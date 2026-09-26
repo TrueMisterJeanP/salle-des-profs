@@ -301,12 +301,12 @@ $flashes = get_flashes();
                                     <td><?= e($article['created_at']) ?></td>
                                     <td>
                                         <div class="admin-actions">
-                                            <a class="button-secondary" href="<?= e(url('article_edit.php?id=' . (int)$article['id'])) ?>">
+                                            <a class="button-secondary" href="<?= e(article_edit_url((string)$article['slug'])) ?>">
                                                 Modifier
                                             </a>
 
                                             <?php if ($article['status'] === 'published'): ?>
-                                                <a class="button-secondary" href="<?= e(url('article.php?slug=' . urlencode($article['slug']))) ?>">
+                                                <a class="button-secondary" href="<?= e(article_url($article['slug'])) ?>">
                                                     Voir
                                                 </a>
 

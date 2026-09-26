@@ -205,6 +205,75 @@ function url(string $path = ''): string
 }
 
 /**
+ * URL lisible d'un article dans l'espace membres : /article/mon-titre.
+ */
+function article_url(string $slug): string
+{
+    return url('article/' . rawurlencode($slug));
+}
+
+/**
+ * URL lisible d'un article public : /publication/mon-titre.
+ */
+function public_article_url(string $slug): string
+{
+    return url('publication/' . rawurlencode($slug));
+}
+
+/**
+ * URL lisible de l'édition d'un article : /article/mon-titre/modifier.
+ */
+function article_edit_url(string $slug): string
+{
+    return url('article/' . rawurlencode($slug) . '/modifier');
+}
+
+/**
+ * URL lisible d'une conversation privée sur le site : /messages/nom-utilisateur.
+ */
+function chat_url(string $username, array $query = []): string
+{
+    $url = url('messages/' . rawurlencode($username));
+
+    return $query ? $url . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : $url;
+}
+
+/**
+ * URL lisible d'une conversation privée dans la messagerie : /messagerie/prive/nom-utilisateur.
+ */
+function messenger_private_url(string $username): string
+{
+    return url('messagerie/prive/' . rawurlencode($username));
+}
+
+/**
+ * URL lisible d'un groupe dans la messagerie : /messagerie/groupe/nom-du-groupe.
+ */
+function messenger_group_url(string $slug): string
+{
+    return url('messagerie/groupe/' . rawurlencode($slug));
+}
+
+/**
+ * Redirige de façon permanente une ancienne adresse en ?slug= vers son URL lisible.
+ */
+function redirect_legacy_slug_url(string $canonicalUrl): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        return;
+    }
+
+    $path = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+
+    if (!str_ends_with($path, '.php')) {
+        return;
+    }
+
+    header('Location: ' . $canonicalUrl, true, 301);
+    exit;
+}
+
+/**
  * Génère une URL d'avatar versionnée pour invalider le cache quand la photo change.
  */
 function avatar_url(int $userId, ?string $avatarPath = null): string
@@ -275,6 +344,15 @@ function slugify(string $text): string
 {
     $text = trim($text);
     $text = mb_strtolower($text, 'UTF-8');
+
+    // Retire les accents avant iconv, dont la translittération varie selon le système (é → 'e sous macOS).
+    if (class_exists('Normalizer')) {
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+
+        if (is_string($decomposed)) {
+            $text = preg_replace('/\p{Mn}+/u', '', $decomposed) ?? $text;
+        }
+    }
 
     $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
 
@@ -452,6 +530,73 @@ function normalize_group_visibility(string $visibility, int $groupId, array &$er
     }
 
     return $groupId;
+}
+
+/**
+ * URL lisible d'un groupe : /groupe/nom-du-groupe.
+ */
+function group_url(string $slug): string
+{
+    return url('groupe/' . rawurlencode($slug));
+}
+
+/**
+ * Slug unique d'un groupe, dérivé de son nom.
+ */
+function group_unique_slug(string $name, ?int $ignoreGroupId = null): string
+{
+    $baseSlug = slugify($name);
+    $slug = $baseSlug;
+    $counter = 2;
+
+    while (true) {
+        $params = ['slug' => $slug];
+        $sql = "SELECT id FROM groups WHERE slug = :slug";
+
+        if ($ignoreGroupId !== null) {
+            $sql .= " AND id != :id";
+            $params['id'] = $ignoreGroupId;
+        }
+
+        if (!db_fetch_one($sql . " LIMIT 1", $params)) {
+            return $slug;
+        }
+
+        $slug = $baseSlug . '-' . $counter;
+        $counter++;
+    }
+}
+
+/**
+ * Ajoute la colonne groups.slug sur une installation existante et renseigne
+ * les groupes qui n'en ont pas encore (migration 024).
+ */
+function groups_ensure_slug_column(): void
+{
+    static $done = false;
+
+    if ($done || !database_is_installed()) {
+        return;
+    }
+
+    if (!db_column_exists('groups', 'slug')) {
+        db_query("ALTER TABLE groups ADD COLUMN slug VARCHAR(255)");
+        db_query("CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON groups(slug)");
+    }
+
+    $groupsWithoutSlug = db_fetch_all("SELECT id, name FROM groups WHERE slug IS NULL OR slug = '' ORDER BY id ASC");
+
+    foreach ($groupsWithoutSlug as $group) {
+        db_query(
+            "UPDATE groups SET slug = :slug WHERE id = :id",
+            [
+                'slug' => group_unique_slug((string)$group['name'], (int)$group['id']),
+                'id' => (int)$group['id'],
+            ]
+        );
+    }
+
+    $done = true;
 }
 
 function user_can_use_group(int $userId, int $groupId, bool $isAdmin = false): bool

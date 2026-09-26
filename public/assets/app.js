@@ -1,3 +1,11 @@
+// Dossier public/ de l'application, déduit de l'adresse de ce script (assets/app.js) :
+// les chemins relatifs restent valides quelle que soit la profondeur de la page.
+const APP_BASE_URL = new URL('../', (document.currentScript && document.currentScript.src) || window.location.href);
+
+function appUrl(path) {
+    return new URL(path, APP_BASE_URL).href;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     [
         initDismissibleFlashes,
@@ -38,6 +46,7 @@ function initMessengerReturnLink() {
 
             return parsed.origin === currentUrl.origin
                 && !parsed.pathname.endsWith('/messenger.php')
+                && !parsed.pathname.includes('/messagerie/')
                 && !parsed.pathname.endsWith('/messenger_login.php');
         } catch (error) {
             return false;
@@ -210,7 +219,7 @@ function renderMessageAttachment(message) {
         return '';
     }
 
-    const fileUrl = `file.php?id=${encodeURIComponent(message.attachment_id)}`;
+    const fileUrl = appUrl(`file.php?id=${encodeURIComponent(message.attachment_id)}`);
     const downloadUrl = `${fileUrl}&download=1`;
     const fileName = message.attachment_original_name || 'Pièce jointe';
     const mimeType = message.attachment_mime_type || '';
@@ -395,7 +404,7 @@ function avatarMarkup(userId, avatar, label) {
     if (avatar) {
         const version = avatarVersion(avatar);
 
-        return `<span class="post-avatar"><img src="avatar.php?user_id=${encodeURIComponent(userId)}&v=${encodeURIComponent(version)}" alt=""></span>`;
+        return `<span class="post-avatar"><img src="${escapeHtml(appUrl(`avatar.php?user_id=${encodeURIComponent(userId)}&v=${encodeURIComponent(version)}`))}" alt=""></span>`;
     }
 
     return `<span class="post-avatar">${escapeHtml(initial)}</span>`;
@@ -438,7 +447,7 @@ function initPrivateChat() {
         appendCsrf(formData);
 
         try {
-            await fetch('../api/mark_messages_read.php', {
+            await fetch(appUrl('../api/mark_messages_read.php'), {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -452,7 +461,7 @@ function initPrivateChat() {
 
     async function fetchMessages() {
         try {
-            const response = await fetch(`../api/fetch_messages.php?user_id=${encodeURIComponent(peerId)}`, {
+            const response = await fetch(appUrl(`../api/fetch_messages.php?user_id=${encodeURIComponent(peerId)}`), {
                 headers: {
                     'Accept': 'application/json'
                 }
@@ -580,7 +589,7 @@ function initPrivateChat() {
             }
 
             try {
-                const uploadResponse = await fetch('../api/upload.php', {
+                const uploadResponse = await fetch(appUrl('../api/upload.php'), {
                     method: 'POST',
                     body: uploadData,
                     headers: {
@@ -614,7 +623,7 @@ function initPrivateChat() {
         appendCsrf(formData);
 
         try {
-            const response = await fetch('../api/send_message.php', {
+            const response = await fetch(appUrl('../api/send_message.php'), {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -689,7 +698,7 @@ function initGroupChat() {
 
     async function fetchGroupMessages() {
         try {
-            const response = await fetch(`../api/fetch_group_messages.php?group_id=${encodeURIComponent(groupId)}`, {
+            const response = await fetch(appUrl(`../api/fetch_group_messages.php?group_id=${encodeURIComponent(groupId)}`), {
                 headers: {
                     'Accept': 'application/json'
                 }
@@ -807,7 +816,7 @@ function initGroupChat() {
             }
 
             try {
-                const uploadResponse = await fetch('../api/upload.php', {
+                const uploadResponse = await fetch(appUrl('../api/upload.php'), {
                     method: 'POST',
                     body: uploadData,
                     headers: {
@@ -841,7 +850,7 @@ function initGroupChat() {
         appendCsrf(formData);
 
         try {
-            const response = await fetch('../api/send_group_message.php', {
+            const response = await fetch(appUrl('../api/send_group_message.php'), {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -903,10 +912,10 @@ function initMessengerWebNotifications() {
     const preferenceStorageKey = 'protectionMessengerNotificationsEnabled';
     const preferenceEndpoint = toggle && toggle.dataset.preferenceEndpoint
         ? toggle.dataset.preferenceEndpoint
-        : '../api/message_alert_preference.php';
+        : appUrl('../api/message_alert_preference.php');
     const messagesEndpoint = toggle && toggle.dataset.messagesEndpoint
         ? toggle.dataset.messagesEndpoint
-        : '../api/message_alerts.php';
+        : appUrl('../api/message_alerts.php');
     const pollDelay = 5000;
     let messengerEnabled = toggle ? toggle.dataset.messengerNotificationEnabled === '1' : false;
     let pollTimer = null;
@@ -971,21 +980,25 @@ function initMessengerWebNotifications() {
             const path = parsed.pathname;
 
             if (path.endsWith('/chat.php') && parsed.searchParams.has('user_id')) {
-                return `messenger.php?type=private&user_id=${encodeURIComponent(parsed.searchParams.get('user_id'))}`;
+                return appUrl(`messenger.php?type=private&user_id=${encodeURIComponent(parsed.searchParams.get('user_id'))}`);
             }
 
             if (path.endsWith('/group.php') && parsed.searchParams.has('id')) {
-                return `messenger.php?type=group&group_id=${encodeURIComponent(parsed.searchParams.get('id'))}`;
+                return appUrl(`messenger.php?type=group&group_id=${encodeURIComponent(parsed.searchParams.get('id'))}`);
+            }
+
+            if (path.includes('/messagerie/')) {
+                return parsed.href;
             }
 
             if (path.endsWith('/messenger.php')) {
-                return parsed.pathname.split('/').pop() + parsed.search;
+                return appUrl(parsed.pathname.split('/').pop() + parsed.search);
             }
         } catch (error) {
-            return 'messenger.php';
+            return appUrl('messenger.php');
         }
 
-        return 'messenger.php';
+        return appUrl('messenger.php');
     }
 
     function titleForNotification(notification) {
@@ -1284,7 +1297,7 @@ function initUploadForm() {
         result.innerHTML = '<div class="flash flash-info">Envoi en cours...</div>';
 
         try {
-            const uploadUrl = new URL('upload.php', window.location.href);
+            const uploadUrl = new URL('upload.php', APP_BASE_URL);
             const response = await fetch(uploadUrl.href, {
                 method: 'POST',
                 body: formData,
@@ -1313,7 +1326,7 @@ function initUploadForm() {
                 <div class="flash flash-success">
                     Fichier envoyé : ${escapeHtml(data.original_name)}
                     <br>
-                    <a href="file.php?id=${encodeURIComponent(data.attachment_id)}" target="_blank" rel="noopener">Ouvrir le fichier</a>
+                    <a href="${escapeHtml(appUrl(`file.php?id=${encodeURIComponent(data.attachment_id)}`))}" target="_blank" rel="noopener">Ouvrir le fichier</a>
                 </div>
             `;
 
@@ -1337,7 +1350,7 @@ function addUploadedAttachmentToList(attachment) {
     const currentPage = Number(list.dataset.currentPage || 1);
 
     if (currentPage > 1) {
-        const firstPageUrl = new URL('attachments.php', window.location.href);
+        const firstPageUrl = new URL('attachments.php', APP_BASE_URL);
         window.location.assign(firstPageUrl.href);
         return;
     }
@@ -1345,7 +1358,7 @@ function addUploadedAttachmentToList(attachment) {
     const attachmentId = Number(attachment.attachment_id || 0);
     const originalName = String(attachment.original_name || 'Fichier');
     const mimeType = String(attachment.mime_type || 'application/octet-stream');
-    const fileUrl = String(attachment.url || `file.php?id=${encodeURIComponent(attachmentId)}`);
+    const fileUrl = String(attachment.url || appUrl(`file.php?id=${encodeURIComponent(attachmentId)}`));
     const filePath = `file.php?id=${attachmentId}`;
     const isImagePreview = mimeType.startsWith('image/');
     const extensionParts = originalName.split('.');
@@ -1375,7 +1388,7 @@ function addUploadedAttachmentToList(attachment) {
             <input class="attachment-link-input" type="text" id="attachment_markdown_${attachmentId}" value="${escapeHtml(markdownLink)}" readonly>
         </td>
         <td>
-            <form method="post" action="attachments.php" class="inline-form" onsubmit="return confirm('Supprimer ce fichier ? Cette action est irréversible.');">
+            <form method="post" action="${escapeHtml(appUrl('attachments.php'))}" class="inline-form" onsubmit="return confirm('Supprimer ce fichier ? Cette action est irréversible.');">
                 <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken())}">
                 <input type="hidden" name="action" value="delete_attachment">
                 <input type="hidden" name="attachment_id" value="${attachmentId}">
@@ -1906,7 +1919,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Transformation...';
 
     try {
-        const response = await fetch('../api/transform_message.php', {
+        const response = await fetch(appUrl('../api/transform_message.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -1961,7 +1974,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Suppression...';
 
     try {
-        const response = await fetch('../api/delete_message.php', {
+        const response = await fetch(appUrl('../api/delete_message.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -2017,7 +2030,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Suppression...';
 
     try {
-        const response = await fetch('../api/delete_conversation.php', {
+        const response = await fetch(appUrl('../api/delete_conversation.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -2067,7 +2080,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Suppression...';
 
     try {
-        const response = await fetch('../api/delete_group.php', {
+        const response = await fetch(appUrl('../api/delete_group.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -2082,9 +2095,9 @@ document.addEventListener('click', async (event) => {
             return;
         }
 
-        window.location.href = window.location.pathname.endsWith('/messenger.php')
-            ? 'messenger.php?type=group'
-            : 'groups.php';
+        window.location.href = document.body.classList.contains('messenger-page')
+            ? appUrl('messenger.php?type=group')
+            : appUrl('groups.php');
     } catch (error) {
         alert('Erreur réseau pendant la suppression du groupe.');
     } finally {
@@ -2119,7 +2132,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Sortie...';
 
     try {
-        const response = await fetch('../api/leave_group.php', {
+        const response = await fetch(appUrl('../api/leave_group.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -2135,8 +2148,8 @@ document.addEventListener('click', async (event) => {
         }
 
         window.location.href = document.body.classList.contains('messenger-page')
-            ? 'messenger.php?type=group'
-            : 'groups.php';
+            ? appUrl('messenger.php?type=group')
+            : appUrl('groups.php');
     } catch (error) {
         alert('Erreur réseau pendant la sortie du groupe.');
     } finally {
@@ -2195,7 +2208,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Modification...';
 
     try {
-        const response = await fetch('../api/edit_message.php', {
+        const response = await fetch(appUrl('../api/edit_message.php'), {
             method: 'POST',
             body: formData,
             headers: {
@@ -2269,7 +2282,7 @@ document.addEventListener('click', async (event) => {
     button.textContent = 'Publication...';
 
     try {
-        const response = await fetch('../api/publish_mastodon.php', {
+        const response = await fetch(appUrl('../api/publish_mastodon.php'), {
             method: 'POST',
             body: formData,
             headers: {

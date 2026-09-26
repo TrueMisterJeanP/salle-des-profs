@@ -9,11 +9,21 @@ require_once __DIR__ . '/../includes/pagination.php';
 
 require_login();
 
+groups_ensure_slug_column();
+
 $user = current_user();
-$groupId = (int)get_value('id', '0');
+$slug = get_value('slug');
+// Ancienne adresse group.php?id=12, redirigée vers l'URL lisible une fois les droits vérifiés.
+$legacyGroupId = (int)get_value('id', '0');
 $messageAttachments = user_attachment_options((int)$user['id']);
 
-if ($groupId <= 0) {
+if ($slug !== '') {
+    $groupCondition = 'groups.slug = :value';
+    $groupValue = $slug;
+} elseif ($legacyGroupId > 0) {
+    $groupCondition = 'groups.id = :value';
+    $groupValue = $legacyGroupId;
+} else {
     http_response_code(404);
     exit('Groupe introuvable.');
 }
@@ -22,15 +32,17 @@ $group = db_fetch_one(
     "SELECT groups.*, users.username, users.display_name
      FROM groups
      JOIN users ON users.id = groups.created_by
-     WHERE groups.id = :id
+     WHERE $groupCondition
      LIMIT 1",
-    ['id' => $groupId]
+    ['value' => $groupValue]
 );
 
 if (!$group) {
     http_response_code(404);
     exit('Groupe introuvable.');
 }
+
+$groupId = (int)$group['id'];
 
 $membership = db_fetch_one(
     "SELECT *
@@ -58,6 +70,8 @@ if (!$canRead) {
     exit('Vous ne pouvez pas accéder à ce groupe.');
 }
 
+redirect_legacy_slug_url(group_url((string)$group['slug']));
+
 $errors = [];
 
 if (is_post()) {
@@ -83,7 +97,7 @@ if (is_post()) {
                 );
 
                 set_flash('success', 'Vous avez rejoint le groupe.');
-                redirect(url('group.php?id=' . $groupId));
+                redirect(group_url((string)$group['slug']));
             } catch (Throwable $e) {
                 $errors[] = 'Erreur : ' . $e->getMessage();
             }
@@ -121,7 +135,7 @@ if (is_post()) {
                 );
 
                 set_flash('success', 'Membre ajouté au groupe.');
-                redirect(url('group.php?id=' . $groupId));
+                redirect(group_url((string)$group['slug']));
             } catch (Throwable $e) {
                 $errors[] = 'Erreur : ' . $e->getMessage();
             }
@@ -152,7 +166,7 @@ if (is_post()) {
                 );
 
                 set_flash('success', 'Membre retiré du groupe.');
-                redirect(url('group.php?id=' . $groupId));
+                redirect(group_url((string)$group['slug']));
             } catch (Throwable $e) {
                 $errors[] = 'Erreur : ' . $e->getMessage();
             }

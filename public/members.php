@@ -10,7 +10,17 @@ require_login();
 ensure_content_group_column('articles');
 
 $currentUser = current_user();
-$selectedMemberId = (int)get_value('member_id', '0');
+$selectedMemberUsername = get_value('membre');
+// Ancien paramètre member_id=5, remplacé par membre=nom-utilisateur.
+$legacySelectedMemberId = (int)get_value('member_id', '0');
+$selectedMemberId = $legacySelectedMemberId;
+
+if ($selectedMemberUsername !== '') {
+    $selectedMemberId = (int)(db_fetch_one(
+        "SELECT id FROM users WHERE username = :username LIMIT 1",
+        ['username' => $selectedMemberUsername]
+    )['id'] ?? 0);
+}
 $contentType = get_value('content');
 $selectedMember = null;
 $memberContent = [];
@@ -30,6 +40,14 @@ if ($selectedMemberId > 0 && $contentType !== '') {
          LIMIT 1",
         ['id' => $selectedMemberId]
     );
+
+    if ($selectedMember && $legacySelectedMemberId > 0 && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        $legacyQuery = $_GET;
+        unset($legacyQuery['member_id']);
+        $legacyQuery = ['membre' => (string)$selectedMember['username']] + $legacyQuery;
+        header('Location: ' . url('members.php?' . http_build_query($legacyQuery, '', '&', PHP_QUERY_RFC3986)), true, 301);
+        exit;
+    }
 
     if ($selectedMember) {
         $contentPerPage = 10;
@@ -205,7 +223,7 @@ $members = db_fetch_all(
                         <?php foreach ($memberContent as $article): ?>
                             <article class="member-content-item">
                                 <h3>
-                                    <a href="<?= e(url('article.php?slug=' . urlencode((string)$article['slug']))) ?>">
+                                    <a href="<?= e(article_url((string)$article['slug'])) ?>">
                                         <?= e((string)$article['title']) ?>
                                     </a>
                                 </h3>
@@ -247,18 +265,15 @@ $members = db_fetch_all(
                         <div class="member-directory-actions">
                             <a class="button-secondary" href="<?= e(url('members.php?' . http_build_query([
                                 'page' => $page,
-                                'member_id' => (int)$member['id'],
+                                'membre' => (string)$member['username'],
                                 'content' => 'posts',
                             ]) . '#contenus-membre')) ?>">Annonces</a>
                             <a class="button-secondary" href="<?= e(url('members.php?' . http_build_query([
                                 'page' => $page,
-                                'member_id' => (int)$member['id'],
+                                'membre' => (string)$member['username'],
                                 'content' => 'articles',
                             ]) . '#contenus-membre')) ?>">Articles</a>
-                            <a class="button-secondary" href="<?= e(url('chat.php?' . http_build_query([
-                                'user_id' => (int)$member['id'],
-                                'members_page' => $page,
-                            ]))) ?>">Messages</a>
+                            <a class="button-secondary" href="<?= e(chat_url((string)$member['username'], ['members_page' => $page])) ?>">Messages</a>
                         </div>
                     </div>
                 </article>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salle-des-profs-cache-v12';
+const CACHE_NAME = 'salle-des-profs-cache-v13';
 
 const STATIC_ASSETS = [
     './',

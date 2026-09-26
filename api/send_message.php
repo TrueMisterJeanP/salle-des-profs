@@ -99,7 +99,7 @@ try {
             [
                 'user_id' => $receiverId,
                 'content' => 'Nouveau message de ' . ($user['display_name'] ?: $user['username']),
-                'link' => url('messenger.php?type=private&user_id=' . (int)$user['id']),
+                'link' => messenger_private_url((string)$user['username']),
                 'created_at' => now(),
             ]
         );

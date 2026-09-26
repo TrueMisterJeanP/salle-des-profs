@@ -17,5 +17,17 @@ RewriteRule ^public/public\.php$ public/404.php [END,QSD]
 RewriteRule ^(?:database|uploads|includes|templates|tests|docs)(?:/|$) - [F,L,NC]
 RewriteRule ^(?:\.git|\.agents|\.codex)(?:/|$) - [F,L,NC]
 RewriteRule ^(?:\.env(?:\..*)?|import_enseignants\.csv)$ - [F,L,NC]
+RewriteRule ^(?:router\.php)$ - [F,L,NC]
 RewriteRule ^\.well-known/webfinger$ .well-known/webfinger.php [L,QSA]
+
+# URL lisibles (articles, groupes, conversations). Les anciennes adresses
+# (?slug=, ?id=, ?user_id=, ?group_id=) sont redirigées en 301 par les pages
+# elles-mêmes. Garder ces règles synchronisées avec router.php.
+RewriteRule ^public/article/([^/]+)/modifier/?$ public/article_edit.php?slug=$1 [B,END,QSA]
+RewriteRule ^public/article/([^/]+)/?$ public/article.php?slug=$1 [B,END,QSA]
+RewriteRule ^public/publication/([^/]+)/?$ public/public_article.php?slug=$1 [B,END,QSA]
+RewriteRule ^public/groupe/([^/]+)/?$ public/group.php?slug=$1 [B,END,QSA]
+RewriteRule ^public/messages/([^/]+)/?$ public/chat.php?user=$1 [B,END,QSA]
+RewriteRule ^public/messagerie/prive/([^/]+)/?$ public/messenger.php?type=private&user=$1 [B,END,QSA]
+RewriteRule ^public/messagerie/groupe/([^/]+)/?$ public/messenger.php?type=group&group=$1 [B,END,QSA]
 RewriteRule ^$ https://salledesprofs.appbox.fr/public/public.php [R=302,L]

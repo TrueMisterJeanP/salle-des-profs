@@ -76,6 +76,14 @@ const APP_ENV = 'production';
 Les fichiers `.htaccess` fournis appliquent ces refus sous Apache. Avec Nginx
 ou un autre serveur, reproduire explicitement ces règles dans le virtual host.
 
+Le `.htaccess` racine définit aussi les URL lisibles (`mod_rewrite` requis) :
+`/public/article/mon-titre`, `/public/article/mon-titre/modifier`,
+`/public/publication/mon-titre`, `/public/groupe/nom-du-groupe`,
+`/public/messages/nom-utilisateur`, `/public/messagerie/prive/nom-utilisateur`
+et `/public/messagerie/groupe/nom-du-groupe`. Sur un autre serveur, reproduire
+ces réécritures, sinon ces pages répondent 404. En local, `router.php` les
+reproduit pour `php -S`.
+
 Si un proxy inverse transmet `X-Forwarded-For`, renseigner ses adresses IP
 exactes, séparées par des virgules, dans `TRUSTED_PROXY_IPS`. Sans cette
 variable, seuls les proxys locaux `127.0.0.1` et `::1` sont approuvés.
@@ -106,7 +114,7 @@ Admin > Migrations
 
 Les schémas d’installation contiennent déjà toutes les évolutions historiques.
 Le dossier `database/migrations/` accueillera les futures migrations à partir
-de `024`, nécessaires uniquement pour mettre à niveau une installation
+de `025`, nécessaires uniquement pour mettre à niveau une installation
 existante.
 
 ## MariaDB

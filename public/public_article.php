@@ -19,6 +19,8 @@ if ($slug === '') {
     exit('Article introuvable.');
 }
 
+redirect_legacy_slug_url(public_article_url($slug));
+
 $article = db_fetch_one(
     "SELECT articles.*,
             users.username,
@@ -67,7 +69,7 @@ $siteIcon = site_icon();
     'title' => (string)$article['title'] . ' — ' . $siteName,
     'description' => seo_description((string)($article['excerpt'] ?: $article['content'])),
     'author' => (string)($article['display_name'] ?: $article['username']),
-    'canonical' => url('public_article.php?slug=' . rawurlencode((string)$article['slug'])),
+    'canonical' => public_article_url((string)$article['slug']),
     'type' => 'article',
     'schema' => [
         '@context' => 'https://schema.org',
@@ -85,7 +87,7 @@ $siteIcon = site_icon();
         ],
         'datePublished' => gmdate('c', strtotime((string)($article['published_at'] ?: $article['created_at'])) ?: time()),
         'dateModified' => gmdate('c', strtotime((string)($article['updated_at'] ?: $article['published_at'] ?: $article['created_at'])) ?: time()),
-        'mainEntityOfPage' => url('public_article.php?slug=' . rawurlencode((string)$article['slug'])),
+        'mainEntityOfPage' => public_article_url((string)$article['slug']),
     ],
 ]); ?>
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">

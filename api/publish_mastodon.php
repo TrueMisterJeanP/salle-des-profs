@@ -271,7 +271,7 @@ try {
         ], 403);
     }
 
-    $publicUrl = url('public_article.php?slug=' . urlencode($article['slug']));
+    $publicUrl = public_article_url($article['slug']);
     $summary = $article['excerpt'] ?: excerpt((string)$article['content'], 260);
 
     $status = mastodon_build_status(

@@ -156,7 +156,7 @@ try {
         'success' => true,
         'type' => 'article',
         'id' => $articleId,
-        'redirect' => url('article_edit.php?id=' . $articleId),
+        'redirect' => article_edit_url($slug),
     ]);
 } catch (Throwable $e) {
     json_response([

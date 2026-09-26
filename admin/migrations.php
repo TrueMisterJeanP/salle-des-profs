@@ -70,6 +70,10 @@ if (is_post()) {
                     auth_ensure_password_setup_columns();
                 }
 
+                if ($filename === '024_group_slugs.sql') {
+                    groups_ensure_slug_column();
+                }
+
                 db_query(
                     "INSERT INTO migrations (filename, executed_at)
                      VALUES (:filename, :executed_at)",

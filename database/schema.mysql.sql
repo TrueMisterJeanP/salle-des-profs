@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS contacts (
 CREATE TABLE IF NOT EXISTS groups (
     id INTEGER PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(190) NOT NULL,
+    slug VARCHAR(255) UNIQUE,
     description TEXT,
     created_by INTEGER NOT NULL,
     visibility VARCHAR(40) NOT NULL DEFAULT 'private',

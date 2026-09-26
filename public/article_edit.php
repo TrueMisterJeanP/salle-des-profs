@@ -15,8 +15,21 @@ $user = current_user();
 $errors = [];
 ensure_content_group_column('articles');
 
+$articleSlug = get_value('slug');
+// Ancienne adresse article_edit.php?id=12, redirigée vers l'URL lisible une fois les droits vérifiés.
 $articleId = (int)get_value('id', '0');
 $article = null;
+
+if ($articleSlug !== '') {
+    $articleBySlug = db_fetch_one("SELECT id FROM articles WHERE slug = :slug LIMIT 1", ['slug' => $articleSlug]);
+
+    if (!$articleBySlug) {
+        http_response_code(404);
+        exit('Article introuvable.');
+    }
+
+    $articleId = (int)$articleBySlug['id'];
+}
 $defaultVisibility = setting_value('default_visibility', 'members');
 
 if (!in_array($defaultVisibility, ['private', 'members', 'public'], true)) {
@@ -70,6 +83,8 @@ if ($articleId > 0) {
         http_response_code(403);
         exit('Vous ne pouvez pas modifier cet article.');
     }
+
+    redirect_legacy_slug_url(article_edit_url((string)$article['slug']));
 }
 
 $title = $article['title'] ?? '';
@@ -127,7 +142,7 @@ if (is_post()) {
                 $pdo->commit();
                 activitypub_after_article_change($beforeActivityPubArticle, $articleId);
                 set_flash('success', 'Fichier retiré de l’article.');
-                redirect(url('article_edit.php?id=' . $articleId));
+                redirect(article_edit_url((string)$article['slug']));
             } catch (Throwable $e) {
                 if (isset($pdo) && $pdo->inTransaction()) {
                     $pdo->rollBack();
@@ -297,10 +312,10 @@ if (is_post()) {
                 set_flash('success', $successMessage);
 
                 if ($status === 'published') {
-                    redirect(url('article.php?slug=' . urlencode($slug)));
+                    redirect(article_url($slug));
                 }
 
-                redirect(url('article_edit.php?id=' . $articleId));
+                redirect(article_edit_url($slug));
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
