@@ -113,13 +113,9 @@ $flashes = get_flashes();
                 </div>
             </form>
             <p class="auth-return-link muted">
-                Pour obtenir un compte, contactez l’administrateur du site.
+                Pour obtenir un compte, contactez l’administrateur du site<?php if (password_recovery_is_available()): ?>
+                    ou <a href="<?= e(url('forgot_password.php?depuis=messagerie')) ?>" title="Mot de passe oublié : recevoir un lien par email">cliquez ici</a><?php endif; ?>.
             </p>
-            <?php if (password_recovery_is_available()): ?>
-                <p class="auth-return-link auth-forgot-link">
-                    <a href="<?= e(url('forgot_password.php?depuis=messagerie')) ?>">Mot de passe oublié ?</a>
-                </p>
-            <?php endif; ?>
         </section>
     </main>
 

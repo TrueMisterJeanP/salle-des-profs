@@ -3778,10 +3778,6 @@ html:has(body.messenger-page) {
     overflow: hidden;
 }
 
-.auth-forgot-link {
-    margin-top: 8px;
-}
-
 .sr-only {
     position: absolute;
     width: 1px;
