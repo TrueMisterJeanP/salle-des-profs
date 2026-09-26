@@ -477,7 +477,9 @@ function initPrivateChat() {
     const uploadStatus = document.querySelector('#message-upload-status');
 
     let isSending = false;
-    let lastMessagesSignature = '';
+    // null et non '' : une liste vide a pour signature '' et doit tout de même
+    // remplacer « Chargement des messages… » au premier affichage.
+    let lastMessagesSignature = null;
 
     async function markMessagesRead() {
         const formData = new FormData();
@@ -742,7 +744,9 @@ function initGroupChat() {
     const uploadStatus = document.querySelector('#group-message-upload-status');
 
     let isSending = false;
-    let lastMessagesSignature = '';
+    // null et non '' : une liste vide a pour signature '' et doit tout de même
+    // remplacer « Chargement des messages… » au premier affichage.
+    let lastMessagesSignature = null;
 
     async function fetchGroupMessages() {
         try {
