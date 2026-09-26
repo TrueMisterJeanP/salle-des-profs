@@ -6,7 +6,7 @@ declare(strict_types=1);
  */
 
 const APP_NAME = 'Salle des profs';
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.1.0';
 const APP_ENV = 'production'; // development ou production
 
 /**

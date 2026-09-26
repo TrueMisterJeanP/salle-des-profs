@@ -1,6 +1,6 @@
 # Salle des profs
 
-Version actuelle : **1.0.1**
+Version actuelle : **1.1.0**
 
 Application web libre d’échange, de soutien et de coordination destinée aux
 enseignants, développée en PHP avec SQLite ou MariaDB.

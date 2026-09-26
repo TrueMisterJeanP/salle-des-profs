@@ -1,5 +1,17 @@
 # Historique des versions
 
+## 1.1.0
+
+Adresses lisibles, récupération de mot de passe et améliorations de la messagerie.
+
+- Adresses lisibles sans identifiant numérique : `/public/article/mon-titre`, `/public/publication/mon-titre`, `/public/groupe/nom-du-groupe`, `/public/messages/nom-utilisateur` et `/public/messagerie/…`. Les anciennes adresses redirigent en 301 après vérification des droits.
+- Migration `024` : slug unique pour les groupes.
+- Récupération de mot de passe par email pour les membres (administrateurs exclus) : lien valable 10 minutes, question anti-robot paramétrable, administrateurs informés.
+- Réponse HTTP `429` avec `Retry-After` lorsque le limiteur des pages de connexion et de récupération est atteint.
+- Blocage des scans de 404 durci : fenêtre glissante et ressources statiques ignorées.
+- Messagerie : discussions en cours épinglées en tête avec le nombre de messages non lus, aucune discussion ouverte par défaut, bouton « Joindre » unique, contrôles alignés, suppression possible d'une conversation vide.
+- Corrections : fichier trop volumineux signalé clairement sans bloquer l'envoi suivant, « Aucun message » dans une conversation vide, liens d'images valides quelle que soit l'adresse de la page, slugs sans accents identiques sur tous les systèmes.
+
 ## 1.0.1
 
 Mise à jour fonctionnelle, visuelle et de sécurité de Salle des profs.

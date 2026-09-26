@@ -1,7 +1,7 @@
 {
   "name": "Salle des profs",
   "short_name": "Salle des profs",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Plateforme d’échange, de soutien et de coordination des enseignants.",
   "start_url": "index.php",
   "display": "standalone",
