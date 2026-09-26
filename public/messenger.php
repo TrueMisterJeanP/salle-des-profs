@@ -376,10 +376,12 @@ $flashes = get_flashes();
 
                     <textarea name="content" placeholder="Écrire un message..."></textarea>
                     <div class="messenger-composer-tools">
-                        <div class="messenger-attach-control">
+                        <div class="messenger-attach-control" data-attach-picker>
                             <label class="button-secondary" for="messenger-message-file">Joindre</label>
+                            <input type="file" id="messenger-message-file" name="file" class="sr-only">
+                            <span class="messenger-attach-name" data-attach-name hidden></span>
+                            <button type="button" class="messenger-attach-clear" data-attach-clear aria-label="Retirer la pièce jointe" title="Retirer la pièce jointe" hidden>✕</button>
                         </div>
-                        <input type="file" id="messenger-message-file" name="file">
                         <?php if ($messageAttachments): ?>
                             <select name="existing_attachment_id" aria-label="Fichier existant">
                                 <option value="">Fichier existant</option>
@@ -432,10 +434,12 @@ $flashes = get_flashes();
 
                     <textarea name="content" placeholder="Écrire un message dans le groupe..."></textarea>
                     <div class="messenger-composer-tools">
-                        <div class="messenger-attach-control">
+                        <div class="messenger-attach-control" data-attach-picker>
                             <label class="button-secondary" for="messenger-group-file">Joindre</label>
+                            <input type="file" id="messenger-group-file" name="file" class="sr-only">
+                            <span class="messenger-attach-name" data-attach-name hidden></span>
+                            <button type="button" class="messenger-attach-clear" data-attach-clear aria-label="Retirer la pièce jointe" title="Retirer la pièce jointe" hidden>✕</button>
                         </div>
-                        <input type="file" id="messenger-group-file" name="file">
                         <?php if ($messageAttachments): ?>
                             <select name="existing_attachment_id" aria-label="Fichier existant">
                                 <option value="">Fichier existant</option>

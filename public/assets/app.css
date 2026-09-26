@@ -3246,8 +3246,50 @@ html:has(body.messenger-page) {
 }
 
 .messenger-attach-control {
+    position: relative;
     display: flex;
     align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.messenger-attach-control:focus-within label.button-secondary {
+    outline: 3px solid rgba(49, 95, 159, 0.28);
+    outline-offset: 3px;
+}
+
+.messenger-attach-name {
+    max-width: 220px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.messenger-attach-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    box-shadow: none;
+    cursor: pointer;
+}
+
+.messenger-attach-clear:hover {
+    background: var(--surface-muted);
+}
+
+.messenger-attach-name[hidden],
+.messenger-attach-clear[hidden] {
+    display: none;
 }
 
 .messenger-composer-tools label.button-secondary {

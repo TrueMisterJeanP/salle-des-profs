@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initDismissibleFlashes,
         initMessengerDrawer,
         initMessengerReturnLink,
+        initAttachPickers,
         initPrivateChat,
         initGroupChat,
         initMessengerWebNotifications,
@@ -28,6 +29,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Bouton « Joindre » de la messagerie : le champ fichier natif est masqué,
+// le nom du fichier choisi s'affiche à côté avec une croix pour le retirer.
+function initAttachPickers() {
+    document.querySelectorAll('[data-attach-picker]').forEach((picker) => {
+        const input = picker.querySelector('input[type="file"]');
+        const name = picker.querySelector('[data-attach-name]');
+        const clear = picker.querySelector('[data-attach-clear]');
+
+        if (!input || !name || !clear) {
+            return;
+        }
+
+        const update = () => {
+            const file = input.files && input.files[0];
+
+            name.textContent = file ? file.name : '';
+            name.title = file ? file.name : '';
+            name.hidden = !file;
+            clear.hidden = !file;
+        };
+
+        input.addEventListener('change', update);
+        clear.addEventListener('click', () => {
+            input.value = '';
+            update();
+            input.focus();
+        });
+
+        update();
+    });
+}
 
 function initMessengerReturnLink() {
     const returnLink = document.querySelector('[data-messenger-return]');
@@ -651,6 +684,7 @@ function initPrivateChat() {
 
             if (fileInput) {
                 fileInput.value = '';
+                fileInput.dispatchEvent(new Event('change'));
             }
 
             if (attachmentInput) {
@@ -887,6 +921,7 @@ function initGroupChat() {
 
             if (fileInput) {
                 fileInput.value = '';
+                fileInput.dispatchEvent(new Event('change'));
             }
 
             if (attachmentInput) {
