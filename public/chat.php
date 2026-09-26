@@ -47,8 +47,8 @@ $users = db_fetch_all(
             users.display_name,
             users.avatar,
             users.last_seen_at,
-            EXISTS (
-                SELECT 1
+            (
+                SELECT MAX(messages.created_at)
                 FROM messages
                 WHERE messages.group_id IS NULL
                   AND messages.is_deleted = 0
@@ -57,7 +57,7 @@ $users = db_fetch_all(
                         OR
                         (messages.sender_id = users.id AND messages.receiver_id = :current_user_id_b)
                   )
-            ) AS has_conversation,
+            ) AS last_message_at,
             (
                 SELECT COUNT(*)
                 FROM messages
@@ -70,7 +70,10 @@ $users = db_fetch_all(
      FROM users
      WHERE users.id != :current_user_id
        AND users.is_active = 1
-     ORDER BY users.display_name COLLATE NOCASE ASC, users.username COLLATE NOCASE ASC
+     ORDER BY last_message_at IS NULL ASC,
+              last_message_at DESC,
+              users.display_name COLLATE NOCASE ASC,
+              users.username COLLATE NOCASE ASC
      LIMIT :limit OFFSET :offset",
     [
         'current_user_id' => $user['id'],
@@ -198,7 +201,13 @@ $flashes = get_flashes();
                     <p class="muted">Aucun autre membre disponible.</p>
                 <?php else: ?>
                     <div class="contact-list">
+                        <?php $previousSection = null; ?>
                         <?php foreach ($users as $member): ?>
+                            <?php $section = !empty($member['last_message_at']) ? 'conversation' : 'other'; ?>
+                            <?php if ($section !== $previousSection): ?>
+                                <p class="contact-list-heading"><?= $section === 'conversation' ? 'Discussions en cours' : 'Autres membres' ?></p>
+                                <?php $previousSection = $section; ?>
+                            <?php endif; ?>
                             <a
                                 class="contact-item <?= (int)$member['id'] === $selectedUserId ? 'active' : '' ?>"
                                 href="<?= e(chat_url((string)$member['username'], ['members_page' => $membersPage])) ?>"
@@ -220,7 +229,7 @@ $flashes = get_flashes();
                                     <span class="contact-badge contact-badge-unread" title="Messages non lus">
                                         <?= e((string)$member['unread_count']) ?> non lu<?= (int)$member['unread_count'] > 1 ? 's' : '' ?>
                                     </span>
-                                <?php elseif ((int)$member['has_conversation'] === 1): ?>
+                                <?php elseif (!empty($member['last_message_at'])): ?>
                                     <span class="contact-badge" title="Discussion en cours">Discussion</span>
                                 <?php endif; ?>
                             </a>

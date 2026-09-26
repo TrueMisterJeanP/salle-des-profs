@@ -2786,7 +2786,22 @@ tr:last-child td {
     text-decoration: none;
 }
 
-/* Liste des membres (chat.php) : discussion en cours et messages non lus. */
+/* Listes des membres (chat.php, messagerie) : discussions en cours épinglées en
+   tête, badge « Discussion » et nombre de messages non lus. */
+.contact-list-heading {
+    margin: 6px 0 0;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.contact-list-heading:first-child {
+    margin-top: 0;
+}
+
 .contact-badge {
     flex: 0 0 auto;
     margin-left: auto;

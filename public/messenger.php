@@ -269,7 +269,13 @@ $flashes = get_flashes();
                     <?php if (!$contacts): ?>
                         <p class="muted">Aucun membre disponible.</p>
                     <?php else: ?>
+                        <?php $previousSection = null; ?>
                         <?php foreach ($contacts as $contact): ?>
+                            <?php $section = !empty($contact['last_message_at']) ? 'conversation' : 'other'; ?>
+                            <?php if ($section !== $previousSection): ?>
+                                <p class="contact-list-heading"><?= $section === 'conversation' ? 'Discussions en cours' : 'Autres membres' ?></p>
+                                <?php $previousSection = $section; ?>
+                            <?php endif; ?>
                             <a class="contact-item <?= (int)$contact['id'] === $selectedUserId ? 'active' : '' ?>" href="<?= e(messenger_private_url((string)$contact['username'])) ?>">
                                 <span class="contact-avatar">
                                     <?php if (!empty($contact['avatar'])): ?>
@@ -280,13 +286,16 @@ $flashes = get_flashes();
                                 </span>
                                 <span>
                                     <strong><?= e($contact['display_name'] ?: $contact['username']) ?></strong>
-                                    <small class="meta">
-                                        @<?= e($contact['username']) ?>
-                                        <?php if ((int)$contact['unread_count'] > 0): ?>
-                                            · <?= e((string)$contact['unread_count']) ?> non lu(s)
-                                        <?php endif; ?>
-                                    </small>
+                                    <small class="meta">@<?= e($contact['username']) ?></small>
                                 </span>
+
+                                <?php if ((int)$contact['unread_count'] > 0): ?>
+                                    <span class="contact-badge contact-badge-unread" title="Messages non lus">
+                                        <?= e((string)$contact['unread_count']) ?> non lu<?= (int)$contact['unread_count'] > 1 ? 's' : '' ?>
+                                    </span>
+                                <?php elseif (!empty($contact['last_message_at'])): ?>
+                                    <span class="contact-badge" title="Discussion en cours">Discussion</span>
+                                <?php endif; ?>
                             </a>
                         <?php endforeach; ?>
                     <?php endif; ?>
