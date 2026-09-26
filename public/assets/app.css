@@ -3306,9 +3306,29 @@ html:has(body.messenger-page) {
     line-height: 1.2;
 }
 
+/* Même hauteur que « Joindre » et « Envoyer ». Safari ignore la hauteur d'un
+   select natif : l'apparence système est retirée et la flèche redessinée. */
 .messenger-composer-tools select {
+    box-sizing: border-box;
     width: auto;
     min-width: 190px;
+    height: 42px;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 36px 0 12px;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2364707d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
+    line-height: 40px;
+}
+
+.messenger-composer-tools button[type="submit"] {
+    box-sizing: border-box;
+    height: 42px;
+    min-height: 42px;
     margin: 0;
 }
 
