@@ -196,7 +196,7 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
     <?php endif; ?>
 
     <div class="container site-header-inner">
-        <a class="brand <?= $siteLogoUrl !== '' || $siteIcon !== '' ? 'brand-has-icon' : '' ?>" href="<?= e(url('dashboard.php')) ?>">
+        <a class="brand <?= $siteLogoUrl !== '' || $siteIcon !== '' ? 'brand-has-icon' : '' ?>" href="<?= e($user ? url('dashboard.php') : url('login.php')) ?>">
             <?php if ($siteLogoUrl !== ''): ?>
                 <span class="brand-icon brand-logo" aria-hidden="true">
                     <img src="<?= e($siteLogoUrl) ?>" alt="">
@@ -298,19 +298,6 @@ $breadcrumbItems = $user ? site_breadcrumb_items($currentScript, [
                 </form>
 
             </nav>
-        <?php elseif (empty($headerBrandOnly)): ?>
-            <details class="site-menu">
-                <summary class="site-menu-toggle">
-                    <span class="site-menu-icon" aria-hidden="true"></span>
-                    <span>Menu</span>
-                </summary>
-                <nav class="main-nav site-menu-panel site-menu-panel-public" aria-label="Navigation publique">
-                    <div class="nav-section">
-                        <span class="nav-section-title">Accès</span>
-                        <a href="<?= e(url('login.php')) ?>" <?= nav_is_current($currentScript, 'login.php') ? 'aria-current="page"' : '' ?>>Connexion</a>
-                    </div>
-                </nav>
-            </details>
         <?php endif; ?>
     </div>
 </header>

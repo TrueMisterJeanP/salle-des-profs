@@ -167,7 +167,6 @@ $flashes = get_flashes();
     <link rel="stylesheet" href="<?= e(url('assets/app.css') . '?v=' . filemtime(__DIR__ . '/assets/app.css')) ?>">
 </head>
 <body class="auth-page">
-    <?php $headerBrandOnly = true; ?>
     <?php require __DIR__ . '/../templates/header.php'; ?>
 
     <main class="auth-container education-login">

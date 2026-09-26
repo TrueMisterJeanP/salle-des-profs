@@ -109,19 +109,6 @@ $siteIcon = site_icon();
                 <?php endif; ?>
                 <span class="brand-name"><?= e($siteName) ?></span>
             </a>
-
-            <button class="site-menu-toggle site-menu-vertical-toggle" type="button" data-site-menu-toggle="site-public-menu" aria-controls="site-public-menu" aria-expanded="false">
-                <span class="site-menu-icon" aria-hidden="true"></span>
-                <span>Menu</span>
-            </button>
-
-            <nav class="main-nav" id="site-public-menu" aria-label="Navigation publique">
-                <a href="<?= e(url('public.php')) ?>">Accueil</a>
-                <a href="<?= e(url('login.php')) ?>">Connexion</a>
-                <a href="<?= e(url('register.php')) ?>">Inscription</a>
-                <a href="<?= e(url('about.php')) ?>">À propos</a>
-                <a href="<?= e(url('rss.php')) ?>">RSS</a>
-            </nav>
         </div>
     </header>
 
