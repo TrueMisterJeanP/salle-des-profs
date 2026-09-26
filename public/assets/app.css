@@ -2786,6 +2786,26 @@ tr:last-child td {
     text-decoration: none;
 }
 
+/* Liste des membres (chat.php) : discussion en cours et messages non lus. */
+.contact-badge {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-muted);
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.contact-badge-unread {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #ffffff;
+}
+
 .contact-avatar {
     width: 38px;
     height: 38px;

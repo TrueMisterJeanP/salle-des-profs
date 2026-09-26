@@ -42,14 +42,41 @@ $totalMembers = (int)(db_fetch_one(
 $membersTotalPages = total_pages($totalMembers, $membersPerPage);
 
 $users = db_fetch_all(
-    "SELECT id, username, display_name, avatar, last_seen_at
+    "SELECT users.id,
+            users.username,
+            users.display_name,
+            users.avatar,
+            users.last_seen_at,
+            EXISTS (
+                SELECT 1
+                FROM messages
+                WHERE messages.group_id IS NULL
+                  AND messages.is_deleted = 0
+                  AND (
+                        (messages.sender_id = :current_user_id_a AND messages.receiver_id = users.id)
+                        OR
+                        (messages.sender_id = users.id AND messages.receiver_id = :current_user_id_b)
+                  )
+            ) AS has_conversation,
+            (
+                SELECT COUNT(*)
+                FROM messages
+                WHERE messages.group_id IS NULL
+                  AND messages.is_deleted = 0
+                  AND messages.sender_id = users.id
+                  AND messages.receiver_id = :current_user_id_c
+                  AND messages.is_read = 0
+            ) AS unread_count
      FROM users
-     WHERE id != :current_user_id
-       AND is_active = 1
-     ORDER BY display_name COLLATE NOCASE ASC, username COLLATE NOCASE ASC
+     WHERE users.id != :current_user_id
+       AND users.is_active = 1
+     ORDER BY users.display_name COLLATE NOCASE ASC, users.username COLLATE NOCASE ASC
      LIMIT :limit OFFSET :offset",
     [
         'current_user_id' => $user['id'],
+        'current_user_id_a' => $user['id'],
+        'current_user_id_b' => $user['id'],
+        'current_user_id_c' => $user['id'],
         'limit' => $membersPerPage,
         'offset' => $membersOffset,
     ]
@@ -188,6 +215,14 @@ $flashes = get_flashes();
                                     <strong><?= e($member['display_name'] ?: $member['username']) ?></strong>
                                     <small class="meta">@<?= e($member['username']) ?></small>
                                 </span>
+
+                                <?php if ((int)$member['unread_count'] > 0): ?>
+                                    <span class="contact-badge contact-badge-unread" title="Messages non lus">
+                                        <?= e((string)$member['unread_count']) ?> non lu<?= (int)$member['unread_count'] > 1 ? 's' : '' ?>
+                                    </span>
+                                <?php elseif ((int)$member['has_conversation'] === 1): ?>
+                                    <span class="contact-badge" title="Discussion en cours">Discussion</span>
+                                <?php endif; ?>
                             </a>
                         <?php endforeach; ?>
                     </div>
