@@ -38,10 +38,14 @@ $tests['Chaque 404 anonyme est comptée'] = $first['attempts'] === 1
     && $second['attempts'] === 2
     && $second['blocked'] === false;
 
+$asset = request_guard_record_not_found('/favicon.ico', $now + 2, false);
+$tests['Une ressource statique absente n’est pas comptée'] = $asset['attempts'] === 0
+    && $asset['blocked'] === false;
+
 request_guard_reset_not_found_attempts();
-$afterValidRoute = request_guard_record_not_found('/encore-absente', $now + 2, false);
-$tests['Une route valide remet la série à zéro'] = $afterValidRoute['attempts'] === 1
-    && $afterValidRoute['blocked'] === false;
+$afterReset = request_guard_record_not_found('/encore-absente', $now + 2, false);
+$tests['La remise à zéro efface la série'] = $afterReset['attempts'] === 1
+    && $afterReset['blocked'] === false;
 
 request_guard_record_not_found('/deuxieme-absente', $now + 3, false);
 $third = request_guard_record_not_found('/troisieme-absente', $now + 4, false);
@@ -49,11 +53,23 @@ $tests['La troisième 404 anonyme déclenche le 429'] = $third['attempts'] === 3
     && $third['blocked'] === true
     && $third['retry_after'] === REQUEST_GUARD_BLOCK_SECONDS;
 
+$duringBlock = request_guard_record_not_found('/pendant-le-blocage', $now + 5, false);
+$tests['Une 404 pendant le blocage reste bloquée sans prolonger la durée'] = $duringBlock['blocked'] === true
+    && $duringBlock['retry_after'] === REQUEST_GUARD_BLOCK_SECONDS - 1;
+
+$assetDuringBlock = request_guard_record_not_found('/favicon.ico', $now + 6, false);
+$tests['Une ressource statique reste bloquée pendant le bannissement'] = $assetDuringBlock['blocked'] === true;
+
 request_guard_reset_not_found_attempts();
-$tests['Une route valide ne lève pas le bannissement'] = request_guard_anonymous_block_remaining(
+$tests['La remise à zéro ne lève pas le bannissement'] = request_guard_anonymous_block_remaining(
     false,
     $now + 5
 ) === REQUEST_GUARD_BLOCK_SECONDS - 1;
+
+$tests['Le bannissement expire après dix minutes'] = request_guard_anonymous_block_remaining(
+    false,
+    $now + 4 + REQUEST_GUARD_BLOCK_SECONDS
+) === 0;
 
 $tests['Une session connectée ignore le bannissement'] = request_guard_anonymous_block_remaining(
     true,
@@ -72,6 +88,20 @@ $tests['Un utilisateur connecté ne déclenche jamais le blocage'] = $authentica
     'retry_after' => 0,
 ] && $afterAuthenticatedRequest['attempts'] === 1
     && $afterAuthenticatedRequest['blocked'] === false;
+
+db_query('DELETE FROM missing_route_attempts');
+db_query('DELETE FROM blocked_clients');
+
+$later = $now + 10_000;
+request_guard_record_not_found('/vieille-1', $later, false);
+request_guard_record_not_found('/vieille-2', $later + 1, false);
+$outsideWindow = request_guard_record_not_found(
+    '/recente',
+    $later + REQUEST_GUARD_WINDOW_SECONDS + 2,
+    false
+);
+$tests['Les 404 hors fenêtre ne comptent plus'] = $outsideWindow['attempts'] === 1
+    && $outsideWindow['blocked'] === false;
 
 $failures = 0;
 foreach ($tests as $name => $passed) {

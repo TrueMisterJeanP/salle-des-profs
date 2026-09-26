@@ -15,8 +15,6 @@ if (is_logged_in()) {
     redirect(url('messenger.php'));
 }
 
-request_guard_enforce_anonymous_block(false);
-
 $errors = [];
 
 if (is_post()) {

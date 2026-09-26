@@ -58,10 +58,19 @@ $_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/dashboard.php';
 $tests['Route valide reconnue'] = request_guard_is_not_found_request() === false;
 $_SERVER['SCRIPT_NAME'] = '/public/login.php';
 $_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/login.php';
-$tests['Formulaire login protégé du bannissement'] = request_guard_is_login_request() === true;
+$tests['Formulaire login exempté du bannissement'] = request_guard_is_login_request() === true
+    && request_guard_is_not_found_request() === false;
 $_SERVER['SCRIPT_NAME'] = '/public/messenger_login.php';
 $_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/messenger_login.php';
-$tests['Formulaire messenger protégé du bannissement'] = request_guard_is_login_request() === true;
+$tests['Formulaire messenger exempté du bannissement'] = request_guard_is_login_request() === true
+    && request_guard_is_not_found_request() === false;
+$_SERVER['SCRIPT_NAME'] = '/public/dashboard.php';
+$_SERVER['SCRIPT_FILENAME'] = ROOT_PATH . '/public/dashboard.php';
+$tests['Route ordinaire soumise au bannissement'] = request_guard_is_login_request() === false;
+$tests['Favicon reconnu comme ressource statique'] = request_guard_is_static_asset_path('/favicon.ico') === true
+    && request_guard_is_static_asset_path('/apple-touch-icon.png') === true;
+$tests['Sonde PHP non traitée comme ressource statique'] = request_guard_is_static_asset_path('/wp-login.php') === false
+    && request_guard_is_static_asset_path('/.env') === false;
 
 unset($_SERVER['HTTP_X_FORWARDED_FOR']);
 app_start_session();

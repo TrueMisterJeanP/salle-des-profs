@@ -47,8 +47,9 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 ## URL inexistantes et scans automatisés
 
 - Apache envoie les URL inexistantes vers `public/404.php`. Les paramètres `rest_route` adressés à `public/public.php` sont également traités comme des 404, car l'application n'expose pas l'API REST de WordPress.
-- Pour un visiteur non connecté, trois URL inexistantes consécutives demandées par la même IP en moins de dix minutes déclenchent une réponse HTTP `429` avec l'en-tête `Retry-After`. Une URL valide remet immédiatement le compteur à zéro et reste accessible, sans lever un bannissement déjà prononcé.
-- Pendant les dix minutes de bannissement, un visiteur non connecté ne peut accéder ni à `login.php` ni à `messenger_login.php`.
+- Pour un visiteur non connecté, trois URL inexistantes demandées par la même IP dans une fenêtre glissante de dix minutes déclenchent une réponse HTTP `429` avec l'en-tête `Retry-After`. Les pages valides consultées entre-temps ne remettent pas le compteur à zéro, afin qu'un scanner ne puisse pas contourner la règle en alternant sondes et pages réelles.
+- Les ressources statiques absentes (`favicon.ico`, icônes, images, CSS, JS, polices) ne sont pas comptées : les navigateurs les demandent d'eux-mêmes et un visiteur légitime ne doit pas être banni pour cela.
+- Pendant les dix minutes de bannissement, toutes les requêtes de l'IP (pages, API, URL inexistantes) renvoient la page `429`, à l'exception de `login.php` et `messenger_login.php`, déjà protégés par leur propre limiteur de tentatives : un utilisateur légitime peut ainsi se connecter, et sa session lève le blocage. Une nouvelle 404 pendant le bannissement ne prolonge pas sa durée.
 - Un utilisateur connecté n'est jamais soumis à ce blocage, y compris lorsqu'il demande une URL inexistante.
 - Les adresses IP sont hachées dans les tables `missing_route_attempts` et `blocked_clients`. Les traces de 404 sont nettoyées après 24 heures et les blocages expirés sont supprimés.
 - Derrière un proxy inverse, renseigner impérativement `TRUSTED_PROXY_IPS`. Sinon, plusieurs visiteurs pourraient être vus comme la même adresse du proxy.

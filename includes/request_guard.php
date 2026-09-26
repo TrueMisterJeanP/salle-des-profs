@@ -81,6 +81,20 @@ function request_guard_is_login_request(): bool
         || in_array(basename($scriptFilename), $loginScripts, true);
 }
 
+/**
+ * Les navigateurs demandent d'eux-mêmes des ressources annexes (favicon,
+ * icônes tactiles…) : leur absence ne doit pas être comptée comme une sonde.
+ */
+function request_guard_is_static_asset_path(string $path): bool
+{
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    return in_array($extension, [
+        'ico', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif',
+        'css', 'js', 'map', 'woff', 'woff2', 'ttf', 'eot',
+    ], true);
+}
+
 function request_guard_is_authenticated(): bool
 {
     return session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id']);
@@ -155,7 +169,7 @@ function request_guard_block_remaining_for_hash(string $ipHash, ?int $timestamp 
 }
 
 /**
- * Une route valide interrompt la série de 404 sans lever un bannissement déjà
+ * Efface les 404 mémorisées pour une IP sans lever un bannissement déjà
  * prononcé, qui reste actif pendant toute sa durée.
  */
 function request_guard_reset_not_found_attempts(?string $ipAddress = null): void
@@ -180,7 +194,7 @@ function request_guard_reset_not_found_attempts(?string $ipAddress = null): void
 
 /**
  * Enregistre une URL inexistante et bloque un visiteur anonyme à la troisième
- * 404 consécutive observée dans la fenêtre de dix minutes.
+ * 404 observée dans la fenêtre glissante de dix minutes.
  *
  * @return array{attempts: int, blocked: bool, retry_after: int}
  */
@@ -233,6 +247,10 @@ function request_guard_record_not_found(
                 'blocked' => true,
                 'retry_after' => $remaining,
             ];
+        }
+
+        if (request_guard_is_static_asset_path($path)) {
+            return $result;
         }
 
         db_query(
@@ -375,18 +393,13 @@ function request_guard_anonymous_block_remaining(
     return request_guard_block_remaining_for_hash(request_guard_ip_hash($ipAddress), $timestamp);
 }
 
-function request_guard_enforce_anonymous_block(?bool $isAuthenticated = null): void
-{
-    if (PHP_SAPI === 'cli') {
-        return;
-    }
-
-    $retryAfter = request_guard_anonymous_block_remaining($isAuthenticated);
-    if ($retryAfter > 0) {
-        request_guard_render_blocked_response($retryAfter);
-    }
-}
-
+/**
+ * Applique le bannissement à chaque route valide demandée par un visiteur
+ * anonyme. Les URL inexistantes sont traitées par public/404.php. Les
+ * formulaires de connexion, déjà protégés par leur propre limiteur, restent
+ * joignables afin qu'un utilisateur légitime puisse ouvrir une session, ce qui
+ * lève le blocage.
+ */
 function request_guard_handle_current_request(): void
 {
     if (PHP_SAPI === 'cli') {
@@ -397,5 +410,29 @@ function request_guard_handle_current_request(): void
         return;
     }
 
-    request_guard_reset_not_found_attempts();
+    $ipAddress = request_guard_client_ip();
+    if ($ipAddress === '') {
+        return;
+    }
+
+    $retryAfter = request_guard_block_remaining_for_hash(request_guard_ip_hash($ipAddress));
+    if ($retryAfter <= 0) {
+        return;
+    }
+
+    // La session n'est ouverte que si le navigateur en présente déjà une :
+    // un scanner sans cookie ne doit pas s'en voir attribuer une.
+    if (session_status() === PHP_SESSION_NONE
+        && defined('SESSION_NAME')
+        && isset($_COOKIE[SESSION_NAME])
+    ) {
+        require_once __DIR__ . '/helpers.php';
+        app_start_session();
+    }
+
+    if (request_guard_is_authenticated()) {
+        return;
+    }
+
+    request_guard_render_blocked_response($retryAfter);
 }

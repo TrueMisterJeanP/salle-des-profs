@@ -16,8 +16,6 @@ if (is_logged_in()) {
     redirect(url('dashboard.php'));
 }
 
-request_guard_enforce_anonymous_block(false);
-
 $errors = [];
 $action = is_post() ? post_value('action', 'login') : 'login';
 $setupToken = trim($action === 'setup_password' ? post_value('setup_token') : get_value('setup_token'));
