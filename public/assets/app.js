@@ -569,6 +569,13 @@ function initPrivateChat() {
             return;
         }
 
+        const maxUploadSize = Number(form.dataset.maxUploadSize || 0);
+
+        if (hasFile && maxUploadSize > 0 && fileInput.files[0].size > maxUploadSize) {
+            alert(`Le fichier est trop volumineux. Taille maximale : ${humanFileSize(maxUploadSize)}.`);
+            return;
+        }
+
         isSending = true;
         if (attachmentInput) {
             attachmentInput.value = hasFile ? '' : existingAttachmentId;
@@ -601,6 +608,7 @@ function initPrivateChat() {
 
                 if (!uploadResponse.ok || !uploadResult.success) {
                     alert(uploadResult.error || 'Impossible d’envoyer la pièce jointe.');
+                    isSending = false;
                     return;
                 }
 
@@ -613,6 +621,7 @@ function initPrivateChat() {
                 }
             } catch (error) {
                 alert('Erreur réseau pendant l’envoi de la pièce jointe.');
+                isSending = false;
                 return;
             }
         }
@@ -796,6 +805,13 @@ function initGroupChat() {
             return;
         }
 
+        const maxUploadSize = Number(form.dataset.maxUploadSize || 0);
+
+        if (hasFile && maxUploadSize > 0 && fileInput.files[0].size > maxUploadSize) {
+            alert(`Le fichier est trop volumineux. Taille maximale : ${humanFileSize(maxUploadSize)}.`);
+            return;
+        }
+
         isSending = true;
         if (attachmentInput) {
             attachmentInput.value = hasFile ? '' : existingAttachmentId;
@@ -828,6 +844,7 @@ function initGroupChat() {
 
                 if (!uploadResponse.ok || !uploadResult.success) {
                     alert(uploadResult.error || 'Impossible d’envoyer la pièce jointe.');
+                    isSending = false;
                     return;
                 }
 
@@ -840,6 +857,7 @@ function initGroupChat() {
                 }
             } catch (error) {
                 alert('Erreur réseau pendant l’envoi de la pièce jointe.');
+                isSending = false;
                 return;
             }
         }

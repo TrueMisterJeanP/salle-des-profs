@@ -245,7 +245,7 @@ $flashes = get_flashes();
                         <p class="muted">Chargement des messages…</p>
                     </div>
 
-                    <form id="message-form" class="message-form">
+                    <form id="message-form" class="message-form" data-max-upload-size="<?= (int)$uploadSizeLimit ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="receiver_id" value="<?= e((string)$selectedUser['id']) ?>">
 

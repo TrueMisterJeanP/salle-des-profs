@@ -16,6 +16,7 @@ $slug = get_value('slug');
 // Ancienne adresse group.php?id=12, redirigée vers l'URL lisible une fois les droits vérifiés.
 $legacyGroupId = (int)get_value('id', '0');
 $messageAttachments = user_attachment_options((int)$user['id']);
+$uploadSizeLimit = effective_upload_size_limit();
 
 if ($slug !== '') {
     $groupCondition = 'groups.slug = :value';
@@ -314,7 +315,7 @@ $flashes = get_flashes();
                         <p class="muted">Chargement des messages…</p>
                     </div>
 
-                    <form id="group-message-form" class="message-form">
+                    <form id="group-message-form" class="message-form" data-max-upload-size="<?= (int)$uploadSizeLimit ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="group_id" value="<?= e((string)$groupId) ?>">
 

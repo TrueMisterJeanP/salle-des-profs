@@ -64,10 +64,59 @@ function csrf_verify(): bool
 }
 
 /**
+ * Vrai quand PHP a ignoré tout le corps de la requête parce qu'il dépasse
+ * post_max_size : $_POST et $_FILES sont vides, jeton CSRF compris.
+ */
+function request_exceeds_post_max_size(): bool
+{
+    $limit = php_size_to_bytes((string)ini_get('post_max_size'));
+    $length = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+
+    return ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+        && $limit > 0
+        && $length > $limit
+        && $_POST === []
+        && $_FILES === [];
+}
+
+/**
+ * Répond à un envoi trop volumineux par un message explicite, sans le
+ * confondre avec un jeton invalide ni renouveler le jeton de la session.
+ */
+function reject_oversized_request(): never
+{
+    $message = 'Le fichier est trop volumineux. Taille maximale : ' . human_file_size(effective_upload_size_limit()) . '.';
+    http_response_code(413);
+
+    if (request_expects_json()) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'error' => $message,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    set_flash('error', $message);
+    $path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $query = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+
+    if (!is_string($path) || $path === '' || !str_starts_with($path, '/')) {
+        redirect(url('dashboard.php'));
+    }
+
+    redirect($path . (is_string($query) && $query !== '' ? '?' . $query : ''));
+}
+
+/**
  * Bloque la requête si le jeton CSRF est invalide.
  */
 function require_csrf(): void
 {
+    if (request_exceeds_post_max_size()) {
+        reject_oversized_request();
+    }
+
     if (!csrf_verify()) {
         http_response_code(403);
 

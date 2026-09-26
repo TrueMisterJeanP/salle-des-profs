@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/request_guard.php';
+require_once __DIR__ . '/../includes/csrf.php';
 
 $tests = [];
 
@@ -87,6 +88,14 @@ unset($_SESSION['user_id']);
 $cookieParameters = session_get_cookie_params();
 $tests['Cookie de session HttpOnly'] = ($cookieParameters['httponly'] ?? false) === true;
 $tests['Cookie de session SameSite'] = ($cookieParameters['samesite'] ?? '') === 'Lax';
+
+$serverBackup = $_SERVER;
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_SERVER['CONTENT_LENGTH'] = (string)(php_size_to_bytes((string)ini_get('post_max_size')) + 1);
+$tests['Envoi au-delà de post_max_size détecté'] = request_exceeds_post_max_size() === true;
+$_SERVER['CONTENT_LENGTH'] = '1024';
+$tests['Envoi normal non signalé comme trop volumineux'] = request_exceeds_post_max_size() === false;
+$_SERVER = $serverBackup;
 
 $failures = 0;
 foreach ($tests as $name => $passed) {

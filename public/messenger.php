@@ -369,7 +369,7 @@ $flashes = get_flashes();
                 <div id="messages" class="messages-list messenger-messages" data-current-user-id="<?= e((string)$user['id']) ?>" data-peer-id="<?= e((string)$selectedUser['id']) ?>">
                 </div>
 
-                <form id="message-form" class="message-form messenger-composer">
+                <form id="message-form" class="message-form messenger-composer" data-max-upload-size="<?= (int)$uploadSizeLimit ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="receiver_id" value="<?= e((string)$selectedUser['id']) ?>">
                     <input type="hidden" name="attachment_id" value="">
@@ -425,7 +425,7 @@ $flashes = get_flashes();
                 <div id="group-messages" class="messages-list messenger-messages" data-current-user-id="<?= e((string)$user['id']) ?>" data-group-id="<?= e((string)$selectedGroup['id']) ?>">
                 </div>
 
-                <form id="group-message-form" class="message-form messenger-composer">
+                <form id="group-message-form" class="message-form messenger-composer" data-max-upload-size="<?= (int)$uploadSizeLimit ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="group_id" value="<?= e((string)$selectedGroup['id']) ?>">
                     <input type="hidden" name="attachment_id" value="">
