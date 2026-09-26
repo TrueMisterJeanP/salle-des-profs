@@ -113,6 +113,8 @@ $flashes = get_flashes();
 $notificationTypeLabels = [
     'private_message' => 'Message privé',
     'group_message' => 'Message de groupe',
+    'password_recovery_request' => 'Mot de passe oublié : demande',
+    'password_recovery_done' => 'Mot de passe oublié : mot de passe changé',
 ];
 ?>
 <!doctype html>

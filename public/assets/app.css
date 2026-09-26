@@ -3768,6 +3768,20 @@ html:has(body.messenger-page) {
     padding: 7px 9px;
 }
 
+/* Champ piège du formulaire « Mot de passe oublié » : invisible pour les
+   personnes, rempli par les robots qui complètent tous les champs. */
+.auth-honeypot {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.auth-forgot-link {
+    margin-top: 8px;
+}
+
 .sr-only {
     position: absolute;
     width: 1px;

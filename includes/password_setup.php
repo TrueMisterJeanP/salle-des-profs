@@ -24,7 +24,7 @@ function auth_ensure_password_setup_columns(): void
     $done = true;
 }
 
-function user_password_setup_token_create(int $userId): string
+function user_password_setup_token_create(int $userId, int $validitySeconds = 86400): string
 {
     auth_ensure_password_setup_columns();
     $token = bin2hex(random_bytes(32));
@@ -37,7 +37,7 @@ function user_password_setup_token_create(int $userId): string
          WHERE id = :id",
         [
             'token_hash' => hash('sha256', $token),
-            'expires_at' => date('Y-m-d H:i:s', strtotime('+24 hours')),
+            'expires_at' => date('Y-m-d H:i:s', time() + max(60, $validitySeconds)),
             'updated_at' => now(),
             'id' => $userId,
         ]

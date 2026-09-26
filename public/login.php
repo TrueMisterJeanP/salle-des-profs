@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/markdown.php';
+require_once __DIR__ . '/../includes/password_recovery.php';
 require_once __DIR__ . '/../includes/password_setup.php';
 
 if (!database_is_installed()) {
@@ -67,6 +68,7 @@ if (is_post()) {
         $retryAfter = auth_rate_limit_retry_after('login', $identifier);
 
         if ($retryAfter > 0) {
+            auth_send_rate_limited_status($retryAfter);
             $errors[] = auth_rate_limit_message($retryAfter);
         }
     }
@@ -135,7 +137,7 @@ $flashes = get_flashes();
                 <p class="public-eyebrow">Salle des profs</p>
                 <h1>Espace professionnel</h1>
                 <p class="muted">
-                    Accès réservé aux personnels enregistrés par l’administrateur.
+                    Connectez-vous pour accéder à vos outils de communication et de partage.
                 </p>
             <?php endif; ?>
 
@@ -220,6 +222,11 @@ $flashes = get_flashes();
                 <p class="auth-return-link muted">
                     Pour obtenir un compte, contactez l’administrateur du site.
                 </p>
+                <?php if (password_recovery_is_available()): ?>
+                    <p class="auth-return-link auth-forgot-link">
+                        <a href="<?= e(url('forgot_password.php?depuis=site')) ?>">Mot de passe oublié ?</a>
+                    </p>
+                <?php endif; ?>
             <?php endif; ?>
         </section>
     </main>

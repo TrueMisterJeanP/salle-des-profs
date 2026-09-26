@@ -75,7 +75,7 @@ function request_guard_is_login_request(): bool
 {
     $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
     $scriptFilename = str_replace('\\', '/', (string)($_SERVER['SCRIPT_FILENAME'] ?? ''));
-    $loginScripts = ['login.php', 'messenger_login.php'];
+    $loginScripts = ['login.php', 'messenger_login.php', 'forgot_password.php'];
 
     return in_array(basename($scriptName), $loginScripts, true)
         || in_array(basename($scriptFilename), $loginScripts, true);

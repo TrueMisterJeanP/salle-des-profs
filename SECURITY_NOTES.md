@@ -49,8 +49,18 @@ Cette revue a corrigé les failles simples directement dans le code. Les points 
 - Apache envoie les URL inexistantes vers `public/404.php`. Les paramètres `rest_route` adressés à `public/public.php` sont également traités comme des 404, car l'application n'expose pas l'API REST de WordPress.
 - Pour un visiteur non connecté, trois URL inexistantes demandées par la même IP dans une fenêtre glissante de dix minutes déclenchent une réponse HTTP `429` avec l'en-tête `Retry-After`. Les pages valides consultées entre-temps ne remettent pas le compteur à zéro, afin qu'un scanner ne puisse pas contourner la règle en alternant sondes et pages réelles.
 - Les ressources statiques absentes (`favicon.ico`, icônes, images, CSS, JS, polices) ne sont pas comptées : les navigateurs les demandent d'eux-mêmes et un visiteur légitime ne doit pas être banni pour cela.
-- Pendant les dix minutes de bannissement, toutes les requêtes de l'IP (pages, API, URL inexistantes) renvoient la page `429`, à l'exception de `login.php` et `messenger_login.php`, déjà protégés par leur propre limiteur de tentatives : un utilisateur légitime peut ainsi se connecter, et sa session lève le blocage. Une nouvelle 404 pendant le bannissement ne prolonge pas sa durée.
+- Pendant les dix minutes de bannissement, toutes les requêtes de l'IP (pages, API, URL inexistantes) renvoient la page `429`, à l'exception de `login.php`, `messenger_login.php` et `forgot_password.php`, déjà protégés par leur propre limiteur de tentatives : un utilisateur légitime peut ainsi se connecter, et sa session lève le blocage. Une nouvelle 404 pendant le bannissement ne prolonge pas sa durée.
 - Un utilisateur connecté n'est jamais soumis à ce blocage, y compris lorsqu'il demande une URL inexistante.
 - Les adresses IP sont hachées dans les tables `missing_route_attempts` et `blocked_clients`. Les traces de 404 sont nettoyées après 24 heures et les blocages expirés sont supprimés.
 - Derrière un proxy inverse, renseigner impérativement `TRUSTED_PROXY_IPS`. Sinon, plusieurs visiteurs pourraient être vus comme la même adresse du proxy.
 - Cette défense applicative protège les pages PHP. Pour absorber un déni de service volumétrique ou bloquer aussi les fichiers statiques, ajouter un pare-feu/WAF ou une règle équivalente chez l'hébergeur.
+
+## Mot de passe oublié
+
+- Désactivé par défaut ; il s'active dans `Admin > Configuration > Mot de passe oublié` avec une question de contrôle et sa réponse. Il reste indisponible tant que l'URL publique du site (`APP_BASE_URL` ou URL canonique des réglages) n'est pas connue.
+- Les comptes administrateurs, désactivés ou non activés sont exclus. La page affiche le même message que l'adresse corresponde ou non à un compte, pour ne pas révéler qui est inscrit.
+- Le lien envoyé contient un jeton aléatoire de 256 bits, stocké haché, valable 10 minutes et à usage unique. Le lien est construit depuis l'URL publique configurée, jamais depuis l'en-tête `Host`, qui pourrait sinon pointer vers un domaine pirate. À l'ouverture, le jeton passe en session et disparaît de l'adresse.
+- Anti-robot : question de contrôle (casse, accents et espaces ignorés), champ piège invisible et délai minimal de 3 secondes. La question n'est pas un secret : elle est commune à tous les membres.
+- Même limiteur que la connexion (5 tentatives en 15 minutes par adresse ou par IP) : au-delà, la page répond `429` avec `Retry-After`. `login.php` et `messenger_login.php` répondent désormais eux aussi `429` lorsque leur limiteur est atteint.
+- Les administrateurs reçoivent une notification à chaque demande aboutie, et une notification plus un email à chaque mot de passe réinitialisé. Le membre reçoit un email de confirmation après le changement.
+

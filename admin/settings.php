@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/storage_quota.php';
 require_once __DIR__ . '/../includes/federation.php';
+require_once __DIR__ . '/../includes/password_recovery.php';
 
 require_admin();
 
@@ -173,6 +174,9 @@ if (is_post()) {
     $aboutContent = post_value('about_content');
     $footerContent = post_value('footer_content');
     $usageCharterContent = post_value('usage_charter_content');
+    $passwordRecoveryEnabled = isset($_POST['password_recovery_enabled']) ? '1' : '0';
+    $passwordRecoveryQuestion = trim(post_value('password_recovery_question'));
+    $passwordRecoveryAnswer = trim(post_value('password_recovery_answer'));
 
     $allowedRobots = ['index,follow', 'index,nofollow', 'noindex,follow', 'noindex,nofollow'];
 
@@ -288,6 +292,14 @@ if (is_post()) {
         $errors[] = 'Port IMAP invalide.';
     }
 
+    if ($action === 'save_settings' && $passwordRecoveryEnabled === '1' && ($passwordRecoveryQuestion === '' || $passwordRecoveryAnswer === '')) {
+        $errors[] = 'Pour activer « Mot de passe oublié », renseignez la question de contrôle et sa réponse.';
+    }
+
+    if ($action === 'save_settings' && (mb_strlen($passwordRecoveryQuestion, 'UTF-8') > 200 || mb_strlen($passwordRecoveryAnswer, 'UTF-8') > 100)) {
+        $errors[] = 'La question de contrôle est limitée à 200 caractères et sa réponse à 100.';
+    }
+
     if ($action === 'save_settings' && !$errors) {
         try {
             save_setting_value('site_name', $siteName);
@@ -344,6 +356,9 @@ if (is_post()) {
             save_setting_value('about_content', $aboutContent);
             save_setting_value('footer_content', $footerContent);
             save_setting_value('usage_charter_content', $usageCharterContent);
+            save_setting_value('password_recovery_enabled', $passwordRecoveryEnabled);
+            save_setting_value('password_recovery_question', $passwordRecoveryQuestion);
+            save_setting_value('password_recovery_answer', $passwordRecoveryAnswer);
 
             set_flash('success', 'Configuration enregistrée.');
             redirect(admin_url('settings.php'));
@@ -401,6 +416,10 @@ $imapPasswordConfigured = setting_value('imap_password', '') !== '';
 $aboutContent = setting_value('about_content', str_replace('{site_name}', $siteName, default_about_content()));
 $footerContent = setting_value('footer_content', str_replace('{site_name}', $siteName, default_footer_content()));
 $usageCharterContent = usage_charter_content();
+$passwordRecoveryEnabled = setting_value('password_recovery_enabled', '0') === '1';
+$passwordRecoveryQuestion = password_recovery_question();
+$passwordRecoveryAnswer = password_recovery_answer();
+$passwordRecoveryBaseUrl = password_recovery_base_url();
 
 $flashes = get_flashes();
 ?>
@@ -998,6 +1017,59 @@ $flashes = get_flashes();
                         Envoyer un email de test
                     </button>
                 </div>
+
+                <hr>
+
+                <h2>Mot de passe oublié</h2>
+
+                <label class="checkbox-label">
+                    <input
+                        type="checkbox"
+                        name="password_recovery_enabled"
+                        value="1"
+                        <?= $passwordRecoveryEnabled ? 'checked' : '' ?>
+                    >
+                    Permettre aux membres de réinitialiser leur mot de passe par email
+                </label>
+                <p class="muted">
+                    Un lien « Mot de passe oublié ? » apparaît alors sous les formulaires de connexion du site et de la messagerie.
+                    Le lien envoyé est valable <?= (int)(PASSWORD_RECOVERY_LINK_VALIDITY / 60) ?> minutes et ne sert qu’une fois.
+                    Les comptes administrateurs sont exclus. Les administrateurs sont notifiés des demandes
+                    et reçoivent un email à chaque mot de passe réinitialisé.
+                </p>
+
+                <label for="password_recovery_question">Question de contrôle anti-robot</label>
+                <input
+                    type="text"
+                    id="password_recovery_question"
+                    name="password_recovery_question"
+                    value="<?= e($passwordRecoveryQuestion) ?>"
+                    maxlength="200"
+                    placeholder="Exemple : Dans quelle ville se trouve notre établissement ?"
+                >
+
+                <label for="password_recovery_answer">Réponse attendue</label>
+                <input
+                    type="text"
+                    id="password_recovery_answer"
+                    name="password_recovery_answer"
+                    value="<?= e($passwordRecoveryAnswer) ?>"
+                    maxlength="100"
+                    autocomplete="off"
+                >
+                <p class="muted">
+                    La casse, les accents et les espaces superflus sont ignorés. Cette question filtre les robots ;
+                    elle n’est pas un secret, puisqu’elle est la même pour tous les membres.
+                </p>
+
+                <?php if ($passwordRecoveryBaseUrl === ''): ?>
+                    <div class="flash flash-warning">
+                        Renseignez l’URL canonique du site (section Référencement) : elle sert à construire le lien envoyé par email.
+                        Sans elle, « Mot de passe oublié » reste désactivé.
+                    </div>
+                <?php else: ?>
+                    <p class="muted">Adresse utilisée dans les emails : <code><?= e($passwordRecoveryBaseUrl) ?>/forgot_password.php</code></p>
+                <?php endif; ?>
 
                 <hr>
 

@@ -317,6 +317,19 @@ function auth_rate_limit_record(string $action, string $identifier, bool $succes
     );
 }
 
+/**
+ * Répond 429 (avec Retry-After) quand le limiteur de tentatives est atteint.
+ */
+function auth_send_rate_limited_status(int $retryAfter): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    http_response_code(429);
+    header('Retry-After: ' . max(1, $retryAfter));
+}
+
 function auth_rate_limit_message(int $retryAfter): string
 {
     $minutes = max(1, (int)ceil($retryAfter / 60));

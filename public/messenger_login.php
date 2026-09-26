@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/markdown.php';
+require_once __DIR__ . '/../includes/password_recovery.php';
 
 if (!database_is_installed()) {
     redirect(root_url('install.php'));
@@ -38,6 +39,7 @@ if (is_post()) {
         $retryAfter = auth_rate_limit_retry_after('login', $identifier);
 
         if ($retryAfter > 0) {
+            auth_send_rate_limited_status($retryAfter);
             $errors[] = auth_rate_limit_message($retryAfter);
         }
     }
@@ -113,6 +115,11 @@ $flashes = get_flashes();
             <p class="auth-return-link muted">
                 Pour obtenir un compte, contactez l’administrateur du site.
             </p>
+            <?php if (password_recovery_is_available()): ?>
+                <p class="auth-return-link auth-forgot-link">
+                    <a href="<?= e(url('forgot_password.php?depuis=messagerie')) ?>">Mot de passe oublié ?</a>
+                </p>
+            <?php endif; ?>
         </section>
     </main>
 
