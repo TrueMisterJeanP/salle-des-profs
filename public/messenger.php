@@ -290,11 +290,9 @@ $flashes = get_flashes();
                                 </span>
 
                                 <?php if ((int)$contact['unread_count'] > 0): ?>
-                                    <span class="contact-badge contact-badge-unread" title="Messages non lus">
+                                    <span class="contact-badge" title="Messages non lus">
                                         <?= e((string)$contact['unread_count']) ?> non lu<?= (int)$contact['unread_count'] > 1 ? 's' : '' ?>
                                     </span>
-                                <?php elseif (!empty($contact['last_message_at'])): ?>
-                                    <span class="contact-badge" title="Discussion en cours">Discussion</span>
                                 <?php endif; ?>
                             </a>
                         <?php endforeach; ?>

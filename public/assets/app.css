@@ -2787,7 +2787,7 @@ tr:last-child td {
 }
 
 /* Listes des membres (chat.php, messagerie) : discussions en cours épinglées en
-   tête, badge « Discussion » et nombre de messages non lus. */
+   tête et nombre de messages non lus. */
 .contact-list-heading {
     margin: 6px 0 0;
     padding: 0 10px;
@@ -2806,19 +2806,13 @@ tr:last-child td {
     flex: 0 0 auto;
     margin-left: auto;
     padding: 2px 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--primary);
     border-radius: 999px;
-    background: var(--surface-muted);
-    color: var(--muted);
+    background: var(--primary);
+    color: #ffffff;
     font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
-}
-
-.contact-badge-unread {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #ffffff;
 }
 
 .contact-avatar {
