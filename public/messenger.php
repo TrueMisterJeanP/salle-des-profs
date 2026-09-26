@@ -129,10 +129,6 @@ $groups = db_fetch_all(
     ['current_user_id' => $user['id']]
 );
 
-if ($mode === 'private' && $selectedUserId === 0 && $contacts) {
-    $selectedUserId = (int)$contacts[0]['id'];
-}
-
 if ($mode === 'group' && $selectedGroupId === 0 && $groups) {
     $selectedGroupId = (int)$groups[0]['id'];
 }
@@ -463,7 +459,7 @@ $flashes = get_flashes();
                     <div id="group-message-upload-status" class="meta"></div>
                 </form>
             <?php else: ?>
-                <div class="empty-state">
+                <div class="empty-state" data-messenger-empty>
                     <div>
                         <h1>Choisissez une conversation</h1>
                         <p class="muted">Sélectionnez un membre ou un groupe pour lire et envoyer des messages.</p>

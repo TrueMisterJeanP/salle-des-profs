@@ -184,6 +184,11 @@ function initMessengerDrawer() {
 
     openButton.setAttribute('aria-expanded', 'false');
     openButton.addEventListener('click', openDrawer);
+
+    // Aucune conversation choisie : sur mobile, la liste serait cachée derrière un écran vide.
+    if (document.querySelector('[data-messenger-empty]')) {
+        openDrawer();
+    }
     closeButtons.forEach((button) => button.addEventListener('click', closeDrawer));
 
     drawer.querySelectorAll('a.contact-item').forEach((link) => {
