@@ -29,28 +29,11 @@ if (!in_array($type, ['private', 'group'], true) || $targetId <= 0) {
 
 try {
     if ($type === 'private') {
-        $creator = db_fetch_one(
-            "SELECT sender_id
-             FROM messages
-             WHERE group_id IS NULL
-               AND is_deleted = 0
-               AND (
-                    (sender_id = :current_user_id_a AND receiver_id = :peer_id_a)
-                    OR
-                    (sender_id = :peer_id_b AND receiver_id = :current_user_id_b)
-               )
-             ORDER BY created_at ASC, id ASC
-             LIMIT 1",
-            [
-                'current_user_id_a' => $user['id'],
-                'peer_id_a' => $targetId,
-                'peer_id_b' => $targetId,
-                'current_user_id_b' => $user['id'],
-            ]
+        $canDelete = private_conversation_can_delete(
+            (int)$user['id'],
+            $targetId,
+            ($user['role'] ?? '') === 'admin'
         );
-
-        $canDelete = $creator
-            && ((int)$creator['sender_id'] === (int)$user['id'] || ($user['role'] ?? '') === 'admin');
 
         if (!$canDelete) {
             json_response([

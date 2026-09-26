@@ -599,6 +599,36 @@ function groups_ensure_slug_column(): void
     $done = true;
 }
 
+/**
+ * Une conversation privée peut être supprimée par l'auteur de son premier
+ * message ou par un administrateur ; une conversation encore vide, par
+ * n'importe lequel des deux membres.
+ */
+function private_conversation_can_delete(int $userId, int $peerId, bool $isAdmin = false): bool
+{
+    $creator = db_fetch_one(
+        "SELECT sender_id
+         FROM messages
+         WHERE group_id IS NULL
+           AND is_deleted = 0
+           AND (
+                (sender_id = :current_user_id_a AND receiver_id = :peer_id_a)
+                OR
+                (sender_id = :peer_id_b AND receiver_id = :current_user_id_b)
+           )
+         ORDER BY created_at ASC, id ASC
+         LIMIT 1",
+        [
+            'current_user_id_a' => $userId,
+            'peer_id_a' => $peerId,
+            'peer_id_b' => $peerId,
+            'current_user_id_b' => $userId,
+        ]
+    );
+
+    return !$creator || (int)$creator['sender_id'] === $userId || $isAdmin;
+}
+
 function user_can_use_group(int $userId, int $groupId, bool $isAdmin = false): bool
 {
     if ($isAdmin) {

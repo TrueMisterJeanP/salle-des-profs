@@ -155,27 +155,11 @@ if ($mode === 'private' && $selectedUserId > 0) {
 }
 
 if ($selectedUser) {
-    $conversationCreator = db_fetch_one(
-        "SELECT sender_id
-         FROM messages
-         WHERE group_id IS NULL
-           AND is_deleted = 0
-           AND (
-                (sender_id = :current_user_id_a AND receiver_id = :peer_id_a)
-                OR
-                (sender_id = :peer_id_b AND receiver_id = :current_user_id_b)
-           )
-         ORDER BY created_at ASC, id ASC
-         LIMIT 1",
-        [
-            'current_user_id_a' => $user['id'],
-            'peer_id_a' => $selectedUser['id'],
-            'peer_id_b' => $selectedUser['id'],
-            'current_user_id_b' => $user['id'],
-        ]
+    $canDeletePrivateConversation = private_conversation_can_delete(
+        (int)$user['id'],
+        (int)$selectedUser['id'],
+        ($user['role'] ?? '') === 'admin'
     );
-    $canDeletePrivateConversation = $conversationCreator
-        && ((int)$conversationCreator['sender_id'] === (int)$user['id'] || ($user['role'] ?? '') === 'admin');
 }
 
 if ($mode === 'group' && $selectedGroupId > 0) {

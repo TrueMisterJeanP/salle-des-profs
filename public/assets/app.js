@@ -2107,6 +2107,14 @@ document.addEventListener('click', async (event) => {
             return;
         }
 
+        // Une conversation privée supprimée disparaît : retour à la liste des contacts.
+        if (type === 'private') {
+            window.location.href = document.body.classList.contains('messenger-page')
+                ? appUrl('messenger.php?type=private')
+                : appUrl('chat.php');
+            return;
+        }
+
         window.location.reload();
     } catch (error) {
         alert('Erreur réseau pendant la suppression de la conversation.');
