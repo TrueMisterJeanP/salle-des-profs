@@ -21,6 +21,18 @@ $_GET = ['slug' => 'equipe', 'page' => '1'];
 $_SERVER['REQUEST_URI'] = '/public/groupe/equipe?page=1';
 $tests['Pagination sans paramètre de réécriture'] = page_url(2) === '?page=2';
 
+$serverBackup = $_SERVER;
+$_SERVER['HTTP_HOST'] = 'example.test';
+$_SERVER['HTTPS'] = 'on';
+$_SERVER['SCRIPT_NAME'] = '/sous-dossier/public/article.php';
+$_SERVER['REQUEST_URI'] = '/public/article/mon-titre';
+$tests['Base URL de l’adresse demandée après réécriture'] = app_detect_base_url() === 'https://example.test/public';
+$_SERVER['REQUEST_URI'] = '/sous-dossier/public/article/mon-titre';
+$tests['Base URL du chemin physique'] = app_detect_base_url() === 'https://example.test/sous-dossier/public';
+$_SERVER['REQUEST_URI'] = '/pirate/public/article/mon-titre';
+$tests['Préfixe inconnu ignoré'] = app_detect_base_url() === 'https://example.test/sous-dossier/public';
+$_SERVER = $serverBackup;
+
 $failures = 0;
 
 foreach ($tests as $name => $passed) {

@@ -69,6 +69,20 @@ function app_detect_base_url(): string
 
     if (preg_match('#^(.*)/(public|admin|api)(?:/|$)#', $scriptName, $matches) === 1) {
         $projectBase = rtrim((string)$matches[1], '/');
+
+        // Après une réécriture (URL lisibles, hébergement qui sert /public/ depuis
+        // /sous-dossier/public/), SCRIPT_NAME donne le chemin physique : on garde le
+        // préfixe réellement demandé par le navigateur s'il en est une version raccourcie.
+        $requestPath = str_replace('\\', '/', (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: ''));
+
+        if (preg_match('#^(.*?)/(public|admin|api)(?:/|$)#', $requestPath, $requestMatches) === 1) {
+            $requestBase = rtrim((string)$requestMatches[1], '/');
+
+            if ($requestBase === '' || str_ends_with($projectBase, $requestBase)) {
+                $projectBase = $requestBase;
+            }
+        }
+
         $basePath = $projectBase . '/public';
     } elseif ($isPublicScript) {
         $basePath = rtrim(str_replace('/index.php', '', dirname($scriptName)), '/');
