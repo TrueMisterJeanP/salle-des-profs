@@ -7308,10 +7308,6 @@ body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.cha
         padding-right: 24px;
     }
 
-    body:not(.auth-page) main.page > .dashboard-welcome-card:first-of-type::after {
-        display: none;
-    }
-
     body:not(.auth-page) main.page > .dashboard-welcome-card:first-of-type > .dashboard-quick-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7681,5 +7677,195 @@ body:not(.auth-page) main.protection-page > section.card {
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
         scrollbar-gutter: stable;
+    }
+}
+
+/* ==========================================================
+   Adaptation aux petits écrans
+   ========================================================== */
+
+/* Bandeaux d'en-tête : l'avatar quitte le coin absolu pour se placer à côté du titre,
+   le reste du contenu occupe toute la largeur en dessous. */
+@media (max-width: 760px) {
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) {
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 16px;
+        row-gap: 0;
+        min-height: 0;
+        padding-right: 24px;
+    }
+
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) > *,
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) > .messenger-entry-copy > * {
+        grid-column: 1 / -1;
+    }
+
+    /* Messagerie : le titre est dans un sous-bloc, dont les enfants rejoignent la grille. */
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) > .messenger-entry-copy {
+        display: contents;
+    }
+
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) > h1,
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) > .messenger-entry-copy > h1 {
+        grid-column: 1;
+        grid-row: 1;
+        align-self: center;
+        overflow-wrap: anywhere;
+    }
+
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1))::after {
+        position: static;
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
+        width: 78px;
+        height: 78px;
+        border-width: 3px;
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1)) {
+        column-gap: 12px;
+    }
+
+    body:not(.auth-page) main.page > .card:first-of-type:not(.article-full):not(.charter-card):not(.about-card):not(.public-article-comments):is(:has(> h1), :has(> .messenger-entry-copy > h1))::after {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+        font-size: 1.5rem;
+    }
+
+    body:not(.auth-page) main.page > .card.dashboard-welcome-card:first-of-type:not(.article-full) > h1 {
+        font-size: 1.45rem;
+    }
+}
+
+/* Le bandeau d'en-tête ne doit pas s'élargir sous l'effet de boutons insécables. */
+body:not(.auth-page) main.page > .card:first-of-type:not(.article-full) {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+code {
+    overflow-wrap: anywhere;
+}
+
+pre code {
+    overflow-wrap: normal;
+}
+
+.chat-empty-state,
+.empty-state {
+    flex-direction: column;
+}
+
+.profile-avatar-block form {
+    min-width: 0;
+}
+
+/* Formulaire sans champ visible, soumis par le bouton « Supprimer la photo ». */
+.profile-avatar-block > #delete-avatar-form {
+    display: none;
+}
+
+.profile-avatar-actions {
+    flex-wrap: wrap;
+}
+
+@media (min-width: 761px) and (max-width: 1000px) {
+    body:not(.auth-page) main.page > .dashboard-welcome-card:first-of-type > .dashboard-quick-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .dashboard-quick-actions > a {
+        width: 100%;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 1100px) {
+    .resources-overview > .resources-overview-sidebar,
+    .resources-overview > .resource-directory-card {
+        grid-column: 1 / -1;
+    }
+
+    .resources-overview > .resources-overview-sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .resources-overview > .resources-overview-sidebar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .profile-avatar-block form {
+        align-self: stretch;
+        width: 100%;
+    }
+
+    .message-type-nav .messenger-notification-nav-button {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .form-actions.admin-protection-nav {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+
+    /* Tableaux présentés en fiches : chaque cellule reprend l'intitulé de sa colonne. */
+    .table-wrapper > table.responsive-table,
+    .table-wrapper > table.responsive-table tbody,
+    .table-wrapper > table.responsive-table tr,
+    .table-wrapper > table.responsive-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .table-wrapper > table.responsive-table {
+        table-layout: auto;
+    }
+
+    .table-wrapper > table.responsive-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .table-wrapper > table.responsive-table tr {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table-wrapper > table.responsive-table tr:last-child {
+        border-bottom: 0;
+    }
+
+    .table-wrapper > table.responsive-table td {
+        padding: 8px 16px;
+        border-bottom: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .table-wrapper > table.responsive-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 3px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .table-wrapper > table.responsive-table td:empty {
+        display: none;
     }
 }

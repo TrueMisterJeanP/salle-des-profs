@@ -70,6 +70,40 @@ $footerContent = footer_content();
         visibilitySelect.addEventListener('change', toggleGroupField);
     });
 
+    // Sur petit écran, les tableaux sont affichés en fiches : chaque cellule reçoit
+    // l'intitulé de sa colonne, affiché par la feuille de style.
+    document.querySelectorAll('.table-wrapper > table').forEach((table) => {
+        const headerRow = table.tHead && table.tHead.rows[0];
+
+        if (!headerRow) {
+            return;
+        }
+
+        const labels = [];
+        Array.from(headerRow.cells).forEach((cell) => {
+            for (let span = 0; span < cell.colSpan; span += 1) {
+                labels.push(cell.textContent.trim());
+            }
+        });
+
+        Array.from(table.tBodies).forEach((body) => {
+            Array.from(body.rows).forEach((row) => {
+                let column = 0;
+                Array.from(row.cells).forEach((cell) => {
+                    const label = labels[column];
+
+                    if (label && cell.colSpan < labels.length && !cell.hasAttribute('data-label')) {
+                        cell.setAttribute('data-label', label);
+                    }
+
+                    column += cell.colSpan;
+                });
+            });
+        });
+
+        table.classList.add('responsive-table');
+    });
+
     const initDismissibleFlashes = (root = document) => {
         root.querySelectorAll('.flash-success, .flash-info').forEach((flash) => {
             if (flash.dataset.autoDismissScheduled !== 'true') {
